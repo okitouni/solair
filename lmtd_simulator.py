@@ -1,87 +1,43 @@
-# Great job guys this looks good :)
 from collections import defaultdict
 import numpy as np
 from typing import Tuple
 from constants import constants
-from utils import get_enthalpy, drop_pressure
+from utils import drop_pressure, lmtd, energy_co2
+from design import compute_ohtc, Tube
 
-
-def lmtd(t_air_in: float, t_air_out: float, t_co2_in: float, t_co2_out: float) -> float:
-    """Compute the LMTD in a segment.
-
-    Args:
-        t_air_in (float): Segment input temperature of air.
-        t_air_out (float): Segment output temperature of air.
-        t_co2_in (float): Segment input temperature of sCO2.
-        t_co2_out (float): Segment output temperature of sCO2.
-
-    Raises:
-        ValueError: Need t_co2_out > t_co2_in >= t_air_out > t_air_in for the physics to make sense. 
-
-    Returns:
-        float: The LMTD of the segment.
-    """
-    delta = (t_co2_in - t_air_out) - (t_co2_out - t_air_in)
-    try:
-        assert t_co2_out > t_co2_in and t_air_out > t_air_in and t_co2_in > t_air_out
-    except AssertionError:
-        raise ValueError(
-            "Need t_co2_out > t_co2_in > t_air_out > t_air_in\n"
-            "have: t_co2_out = {}, t_co2_in = {}, t_air_out = {}, t_air_in = {}".format(
-                t_co2_out, t_co2_in, t_air_out, t_air_in
-            )
-        )
-    return delta / np.log((t_co2_in - t_air_out) / (t_co2_out - t_air_in))
-
-
-def energy_co2(
-    p_in: float, p_out: float, t_in: float, t_out: float, m_co2: float
-) -> float:
-    """Compute the energy transferred out of the sCO2.
-
-    Args:
-        p_in (float): Initial pressure of the sCO2.
-        p_out (float): Final pressure of the sCO2.
-        t_in (float): Initial temperature of the sCO2.
-        t_out (float): Final temperature of the sCO2.
-
-    Returns:
-        float: The energy transferred out of the sCO2.
-    """
-    h_in = get_enthalpy(p_in, t_in)
-    h_out = get_enthalpy(p_out, t_out)
-    return m_co2 * abs(h_out - h_in)
-
-
-def energy_air(mdot: float, t0: float, t1: float) -> float:
-    """Compute the energy transferred into the air.
-
-    Args:
-        mdot (float): Mass flow rate of the air.
-        t0 (float): Temperature of the inlet air.
-        t1 (float): Temperature of the outlet air.
-
-    Returns:
-        float: The energy transferred into the air.
-    """
-    return constants.cp_air * mdot * (t1 - t0)
 
 
 class Simulator:
-    def __init__(self) -> None:
-        self.converged = False
-        self.temps = defaultdict(list)
-        self._verbose: int
+    def __init__(self, tube: Tube = None) -> None:
+        """Initialize the simulator with a specific tube design.
+
+        Args:
+            tube (Tube, optional): Tube object associated with the specific design. Defaults to None.
+        """        
+        self.converged = False # Whether the simulation has converged
+        self.temps = defaultdict(list) # Dictionary of temperatures for each segment
+        self._verbose: int # Verbosity level
+        self.tube = Tube() if tube is None else tube 
 
     def run(
         self,
-        t_co2_in,
-        t_air_in,
-        p_co2_in=None,
-        verbose=1,
+        t_co2_in: float,
+        t_air_in: float,
+        p_co2_in: float =None,
+        verbose: int =1,
         max_segments: int = 50,
         max_depth: int = 20,
-    ) -> None:
+    ) -> None: 
+        """Run the simulation. The initial values here are actually outlet values for CO2 and Inlet for air.
+
+        Args:
+            t_co2_in (float): Initial temperature of the sCO2.
+            t_air_in (float): Initial temperature of the air.
+            p_co2_in (float, optional): Initial pressure of the CO2. Defaults to None.
+            verbose (int, optional): Verbosity level. Defaults to 1.
+            max_segments (int, optional): Number of segments along the tubes. Defaults to 50.
+            max_depth (int, optional): Maximum number of iterations in the binary search at each segment. Defaults to 20.
+        """    
         self._verbose = verbose
         if verbose > 0:
             print("Initial conditions:")
@@ -106,8 +62,11 @@ class Simulator:
                 )
             if self.converged:
                 break
+
         if verbose > 0:
             print("Finished simulation")
+
+        # testing using final temperature for second tube
         t_co2_in, t_air_out = self._temperature_search(
             p_co2_in=p_co2_in,
             t_co2_in=t_co2_in,
@@ -133,7 +92,22 @@ class Simulator:
         """
         # Currently, this is a binary search and only works when data is sorted
         # (i.e. q_htc - q_co2 is monotonic in sCO2 output temp).
-        def binary_search_temps(left, right, max_depth):
+        def binary_search_temps(left: float, right: float, max_depth: int) -> Tuple[float]:
+            """Search for the temperature of the sCO2 in a given segment. This is a binary search which will
+            terminate when the temperature is within a certain tolerance of the target temperature. It assumes
+            that the difference in Q_htc and Q_co2 is monotonic in the guess temperature.
+
+            Args:
+                left (_type_): Left bound of the search.
+                right (_type_): Right bound of the search.
+                max_depth (_type_): Maximum number of iterations in the search.
+
+            Raises:
+                RecursionError: If the maximum number of iterations is reached.
+
+            Returns:
+                Tuple: The final temperature of the sCO2 and air across the segment.
+            """            
             if max_depth == 0:
                 raise RecursionError("Max depth reached")
             t_co2_out = (left + right) / 2
@@ -141,8 +115,7 @@ class Simulator:
             m_co2_per_tube = constants.m_co2 / constants.n_tubes_tot
             q_co2 = energy_co2(p_co2_in, p_co2_out, t_co2_in, t_co2_out, m_co2_per_tube)
             # TODO get m_air for segment
-            m_air_segment = constants.m_air / constants.n_segments
-            # compute air out temp from heat transfer into air
+            m_air_segment = constants.m_air / constants.n_segments / constants.n_tubes_in_row # divided by number of tubes in a row as we are considering a single tube for all calculations            # compute air out temp from heat transfer into air
             t_air_out = q_co2 / (m_air_segment * constants.cp_air) + t_air_in
 
             if np.isclose(t_co2_out, constants.t_co2_inlet, rtol=0.001):
@@ -161,7 +134,14 @@ class Simulator:
                 return binary_search_temps(left, right, 1000)
 
             delta_t_m = lmtd(t_air_in, t_air_out, t_co2_in, t_co2_out)
-            q_htc = constants.OHTC * (delta_t_m)  # TODO OHTC is not constant
+
+            # Compute the OHTC from the tube design and theormodynamics probabilities
+            ohtc = compute_ohtc(
+                t_air = t_air_in, t_s=t_co2_in, p_air=constants.p_air_in, p_s=p_co2_in, m_air=m_air_segment, m_s=m_co2_per_tube,  tube=self.tube
+            )
+            print(ohtc)
+
+            q_htc = ohtc * (delta_t_m)  # TODO OHTC is not constant
             if self._verbose > 2:
                 print(
                     f"t_co2_out: {t_co2_out}, t_air_out: {t_air_out}, q_co2: {q_co2}, q_htc: {q_htc}"
