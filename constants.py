@@ -1,5 +1,6 @@
 from utils import get_enthalpy
 
+
 class constants:
     # solver tolerance
     tolerance = 0.01  # tolerance in heat error to use in temperature search
@@ -8,8 +9,8 @@ class constants:
     n_tubes_in_row = 30
     n_rows = 4
     n_tubes_tot = n_tubes_in_row * n_rows
-    
-    OHTC = 100  # [W/m2-K]
+
+    # OHTC = 100  # [W/m2-K]
 
     # thermodynamic constants
     t_co2_inlet = 72.83 + 273.15
@@ -18,6 +19,7 @@ class constants:
     p_co2_outlet = 7.48e6
     t_air_inlet = 25 + 273.15
     t_air_outlet = 60 + 273.15  # guess outlet air T, cannot be higher than T_CO2_in
+    p_air_in = 101000
 
     # calculate air mass flow rate
     # WRITE m_co2 calculation

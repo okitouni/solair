@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Iterable, Tuple
+from typing import Iterable
 from CoolProp.CoolProp import PropsSI
 
 
@@ -83,44 +83,16 @@ def get_enthalpy(p: Iterable[float], t: Iterable[float], fluid: str = "CO2") -> 
     enthalpies = PropsSI("H", "P", p, "T", t, fluid)
     return enthalpies
 
-class constants:
-    tolerance = 0.01  # tolerance in heat error to use in temperature search
-    t_co2_inlet = 89 + 273.15
-    t_co2_outlet = 35 + 273.15
-    t_air_inlet = 25 + 273.15
-    p_co2_inlet = 8e6
-    p_co2_outlet = 7.48e6
-
-    # calculate air mass flow rate
-    # WRITE m_co2 calculation
-    m_co2 =  443 # [kg/s] for 100MW
-    cp_air = 1005  # [J/kg-K]
-
-    # calculate total Q exchanged
-    # NEED ENTHALPY OF CO2
-    h_co2_inlet = get_enthalpy(p_co2_inlet, t_co2_inlet)
-    h_co2_outlet = get_enthalpy(p_co2_outlet, t_co2_outlet)
-    total_heat_transferred = abs(m_co2 * (h_co2_outlet - h_co2_inlet))
-
-    # find air mass flow rate
-    t_air_outlet = 80 + 273.15  # guess outlet air T, cannot be higher than T_CO2_in
-    delta_t_air = t_air_outlet - t_air_inlet
-    m_air = total_heat_transferred / (cp_air * delta_t_air)  # Assuming something between 6.75 and 30 kg/s which correlates to about 2-5 m/s air velocity
-    OHTC = 700  # [W/m2-K]
-    n_tubes_in_row = 30
-    n_rows = 4
-    n_tubes_tot = n_tubes_in_row * n_rows
-
 
 
 def calculate_htc_a(t, p, m, tube: Tube):
-    """Compute OHTC
+    """Compute HTC for air for given temperature, pressure, mass flow rate and tube+fin design
     Args:
         pr_a (float): Prandtl number.
         re_a (float): Reynolds number.
         tube (class element): class describing the geometry of the tube
     Returns:
-        OHTC: overall heat transfer coefficient for air .
+        HTC_air: heat transfer coefficient for air .
     """
     cross_section_air = tube.calculate_cross_section_air()
     pr_a = calculate_pr_air(t, p)
@@ -170,6 +142,22 @@ def calculate_htc_s(t, p, m):
 ### T and P are different for air and CO2, OHTC can not be calculated with one pair of values
 ### 
 def compute_ohtc(t_air, t_s, p_air, p_s, m_air, m_s, tube):
+    """ Computes overall heat transfer coefficient of the heat exchanger. 
+    This is done by calculating HTC_air and HTC_sco2 and taken the inverse of their sum. 
+    Thermal resistance of the tube wall r2 is neglected.
+
+    Args:
+        t_air (_type_): _description_
+        t_s (_type_): _description_
+        p_air (_type_): _description_
+        p_s (_type_): _description_
+        m_air (_type_): _description_
+        m_s (_type_): _description_
+        tube (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """    
     # TODO do you need to multiply by n tubes in the z direction?
     surface_area_co2 = tube.calculate_surface_area_co2()
     print('schaise', surface_area_co2)
@@ -183,36 +171,38 @@ def compute_ohtc(t_air, t_s, p_air, p_s, m_air, m_s, tube):
     return ohtc
 
 
-# TESTING:
-'''
+if __name__  == "__main__":
+    # TESTING:
+    '''
 
-### calc Reynolds number for air
-tube = Tube()
-cross_section_air = tube.calculate_cross_section_air()
-print(cross_section_air)
-m=700/30    #air flow across 1 tube (total flow / tubes in row)
-re_air = calculate_re_air(300, 1e5, m, cross_section_air, tube )
-print(re_air)
+    ### calc Reynolds number for air
+    tube = Tube()
+    cross_section_air = tube.calculate_cross_section_air()
+    print(cross_section_air)
+    m=700/30    #air flow across 1 tube (total flow / tubes in row)
+    re_air = calculate_re_air(300, 1e5, m, cross_section_air, tube )
+    print(re_air)
 
 
-### Calc Reynolds number for CO2
-tube = Tube()
-re_CO2 = calculate_re_co2(273.15+75, 8e6, 443/(120*100))        # mass flow rate divided by 12000 to make sense...
-print(re_CO2)
+    ### Calc Reynolds number for CO2
+    tube = Tube()
+    re_CO2 = calculate_re_co2(273.15+75, 8e6, 443/(120*100))        # mass flow rate divided by 12000 to make sense...
+    print(re_CO2)
 
-### Calc HTC air
-tube = Tube()
-m= 6.7 # 700/30
-htc_a = calculate_htc_a(300, 1e5, m, tube)
-print('htc_a',htc_a)
+    ### Calc HTC air
+    tube = Tube()
+    m= 6.7 # 700/30
+    htc_a = calculate_htc_a(300, 1e5, m, tube)
+    print('htc_a',htc_a)
 
-### Calc HTC CO2
-tube = Tube()
-m= 443 / (120*100)
-htc_s = calculate_htc_s(320, 8e6, m)
-print('htc_s', htc_s)
-'''
-tube = Tube()
-m_s = 443 / (120*100)
-ohtc = compute_ohtc(300, 320, 1e5, 8e6, 6.7, m_s , tube)
-print('ohtc', ohtc)
+    ### Calc HTC CO2
+    tube = Tube()
+    m= 443 / (120*100)
+    htc_s = calculate_htc_s(320, 8e6, m)
+    print('htc_s', htc_s)
+    '''
+    tube = Tube()
+    m_s = 443 / (120*100)
+    ohtc = compute_ohtc(300, 320, 1e5, 8e6, 6.7, m_s , tube)
+
+    print('ohtc', ohtc)
