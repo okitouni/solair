@@ -4,7 +4,6 @@ import numpy as np
 from typing import Tuple
 from constants import constants
 from utils import get_enthalpy, drop_pressure
-from sys import argv
 
 
 def lmtd(t_air_in: float, t_air_out: float, t_co2_in: float, t_co2_out: float) -> float:
@@ -72,38 +71,54 @@ class Simulator:
     def __init__(self) -> None:
         self.converged = False
         self.temps = defaultdict(list)
+        self._verbose: int
 
     def run(
-        self, t_co2_in, t_air_in, p_co2_in=None, verbose=1, max_iterations: int = 50
+        self,
+        t_co2_in,
+        t_air_in,
+        p_co2_in=None,
+        verbose=1,
+        max_segments: int = 50,
+        max_depth: int = 20,
     ) -> None:
+        self._verbose = verbose
         if verbose > 0:
             print("Initial conditions:")
             print("t_co2_in:", t_co2_in, "t_air_in:", t_air_in)
 
         p_co2_in = constants.p_co2_outlet if p_co2_in is None else p_co2_in
 
-        for i in range(max_iterations):
-            t_co2_in, t_air_in = self._temperature_search(
-                p_co2_in=p_co2_in, t_co2_in=t_co2_in, t_air_in=t_air_in
+        for i in range(max_segments):
+            t_co2_in, t_air_out = self._temperature_search(
+                p_co2_in=p_co2_in,
+                t_co2_in=t_co2_in,
+                t_air_in=t_air_in,
+                max_depth=max_depth,
             )
             self.temps["t_co2"].append(t_co2_in)
-            self.temps["t_air"].append(t_air_in)
+            self.temps["t_air"].append(t_air_out)
 
             if verbose > 1:
-                print(f"Finished segment {i}", f"t_co2_out: {t_co2_in}, t_air_out: {t_air_in}")
+                print(
+                    f"Finished segment {i+1}",
+                    f"t_co2_out: {t_co2_in}, t_air_out: {t_air_out}",
+                )
             if self.converged:
                 break
         if verbose > 0:
             print("Finished simulation")
+        t_co2_in, t_air_out = self._temperature_search(
+            p_co2_in=p_co2_in,
+            t_co2_in=t_co2_in,
+            t_air_in=self.temps["t_air"][0],
+            max_depth=max_depth,
+        )
+        print(f"t_co2_out: {t_co2_in}, t_air_out: {t_air_out}")
         return
 
     def _temperature_search(
-        self,
-        p_co2_in: float,
-        t_co2_in: float,
-        t_air_in: float,
-        max_depth: int = 20,
-        debug: bool = False,
+        self, p_co2_in: float, t_co2_in: float, t_air_in: float, max_depth: int = 20,
     ) -> Tuple[float]:
         """Search for the temperature of the sCO2 in a given segment.
 
@@ -122,8 +137,6 @@ class Simulator:
             if max_depth == 0:
                 raise RecursionError("Max depth reached")
             t_co2_out = (left + right) / 2
-            if np.isclose(t_co2_out, constants.t_co2_inlet, rtol=0.001):
-                self.converged = True
             p_co2_out = drop_pressure(p_co2_in)
             m_co2_per_tube = constants.m_co2 / constants.n_tubes_tot
             q_co2 = energy_co2(p_co2_in, p_co2_out, t_co2_in, t_co2_out, m_co2_per_tube)
@@ -132,20 +145,28 @@ class Simulator:
             # compute air out temp from heat transfer into air
             t_air_out = q_co2 / (m_air_segment * constants.cp_air) + t_air_in
 
+            if np.isclose(t_co2_out, constants.t_co2_inlet, rtol=0.001):
+                self.converged = True
+                if self._verbose > 0:
+                    print("Converged")
+                return t_co2_out, t_air_out
+
             if t_air_out > t_co2_in:
                 # air out can't be hotter than sCO2 used to heat it
                 # air is too hot -> decrease out temp
                 # -> set current middle to be the new max
+                # if self._verbose > 2:
+                #     print("t_co2_out:", t_co2_out, "t_air_out:", t_air_out),
                 right = t_co2_out
-                return binary_search_temps(left, right, max_depth - 1)
+                return binary_search_temps(left, right, 1000)
 
             delta_t_m = lmtd(t_air_in, t_air_out, t_co2_in, t_co2_out)
             q_htc = constants.OHTC * (delta_t_m)  # TODO OHTC is not constant
-            if debug:
+            if self._verbose > 2:
                 print(
                     f"t_co2_out: {t_co2_out}, t_air_out: {t_air_out}, q_co2: {q_co2}, q_htc: {q_htc}"
                 )
-            if abs((q_htc - abs(q_co2)) / q_co2) > constants.tolerance:
+            if not np.isclose(q_htc, abs(q_co2), rtol=constants.tolerance):
                 if q_htc < q_co2:
                     # too much co2 heat change -> lower delta T -> lower out temp
                     # -> set current middle to be the new max
@@ -162,12 +183,4 @@ class Simulator:
             t_co2_in, constants.t_co2_inlet, max_depth
         )
         return t_co2_out, t_air_out
-
-
-if __name__ == "__main__":
-    verbose = 2
-    # start conditions
-    simulator = Simulator()
-    simulator.run(constants.t_co2_outlet, constants.t_air_inlet, verbose=verbose)
-
 
