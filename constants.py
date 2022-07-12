@@ -9,7 +9,7 @@ class constants:
     n_rows = 4
     n_tubes_tot = n_tubes_in_row * n_rows
     
-    OHTC = 1000  # [W/m2-K]
+    OHTC = 100  # [W/m2-K]
 
     # thermodynamic constants
     t_co2_inlet = 72.83 + 273.15
@@ -17,12 +17,12 @@ class constants:
     p_co2_inlet = 8e6
     p_co2_outlet = 7.48e6
     t_air_inlet = 25 + 273.15
-    t_air_outlet = 80 + 273.15  # guess outlet air T, cannot be higher than T_CO2_in
+    t_air_outlet = 60 + 273.15  # guess outlet air T, cannot be higher than T_CO2_in
 
     # calculate air mass flow rate
     # WRITE m_co2 calculation
     m_co2 = 443.177  # [kg/s] for 100MW
-    cp_air = 1.005  # [kJ/kg-K]
+    cp_air = 1005.0  # [J/kg-K]
 
     # calculate total Q exchanged
     # NEED ENTHALPY OF CO2
