@@ -13,7 +13,6 @@ parser.add_argument("-d", "--max_depth", type=int, default=20)
 def main():
     args = parser.parse_args()
     simulator = Simulator()
-    print(constants.t_air_inlet)
     simulator.run(constants.t_co2_outlet, constants.t_air_inlet, max_segments=args.n_segments, verbose=args.verbose)
     return 1
 

@@ -22,7 +22,7 @@ class Simulator:
         self,
         t_co2_in: float,
         t_air_in: float,
-        p_co2_in: float = constants.p_co2.outlet,
+        p_co2_in: float = constants.p_co2_outlet,
         verbose: int = 1,
         max_segments: int = 50,
         max_depth: int = 20,
@@ -72,7 +72,6 @@ class Simulator:
             t_air_in=self.temps["t_air"][0],
             max_depth=max_depth,
         )
-        print(f"t_co2_out: {t_co2_in}, t_air_out: {t_air_out}")
         return
 
     def _temperature_search(
@@ -148,12 +147,11 @@ class Simulator:
                 m_s=m_co2_per_tube,
                 tube=self.tube,
             )
-            print(ohtc)
 
-            q_htc = ohtc * (delta_t_m)  # TODO OHTC is not constant
+            q_htc = ohtc * (delta_t_m) 
             if self._verbose > 2:
                 print(
-                    f"t_co2_out: {t_co2_out}, t_air_out: {t_air_out}, q_co2: {q_co2}, q_htc: {q_htc}"
+                    f"OHTC: {ohtc},t_co2_out: {t_co2_out}, t_air_out: {t_air_out}, q_co2: {q_co2}, q_htc: {q_htc}"
                 )
             if not np.isclose(q_htc, abs(q_co2), rtol=constants.tolerance):
                 if q_htc < q_co2:
