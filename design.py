@@ -16,15 +16,18 @@ class Tube:
         self.d_f = 57.15e-3  #  [m]     fin outside diameter
         self.d_r = 0.028 # [m] fin inside diameter
         self.d_i = 20e-3 # [m] tube inside diameter
+        #self.h_a = 
+        #self.k_f = 
     def calculate_cross_section_air(self):
         cross_section_tube_s = (self.tp-self.d_ot)*self.L_t-(self.d_f-self.d_ot)*self.t_f*self.n_f
         return cross_section_tube_s
 
     def calculate_surface_area_air(self):
-        surface_area_tube = np.pi * self.d_ot * (
-            self.L_t - self.t_f * self.n_f
-        ) + np.pi * ((self.d_f ** 2 - self.d_ot ** 2) / 2)
-        return surface_area_tube
+        A_f = np.pi * ((self.d_f ** 2 - self.d_ot ** 2) / 2)
+        A_t = np.pi * self.d_ot * (
+            self.L_t - self.t_f * self.n_f)
+     
+        return [A_t,A_f]
     def calculate_surface_area_co2(self):
         surface_area_co2 = 2*np.pi*self.d_i*self.L_t 
         return surface_area_co2
@@ -62,7 +65,7 @@ def calculate_re_co2(t, p, m):
     di = 0.02  # internal diameter of single tube
     r = di / 2
     u = m / (rho * (np.pi * r ** 2))
-    print('flow speed', u)
+    #print('flow speed', u)
     L = di
     Re = (rho * u * L) / mu     # from heat transfer book page 487:
     return Re
@@ -97,7 +100,7 @@ def calculate_htc_a(t, p, m, tube: Tube):
     cross_section_air = tube.calculate_cross_section_air()
     pr_a = calculate_pr_air(t, p)
     re_a = calculate_re_air(t, p, m, cross_section_air, tube)
-    print('re_a',re_a)
+    #print('re_a',re_a)
     k_a = 0.025  # W/(mK) thermal conductivity of air #TODO this varies over temperature and pressure
     htc_a = k_a/ tube.d_ot*(
         0.134
@@ -112,10 +115,10 @@ def calculate_htc_a(t, p, m, tube: Tube):
 def calculate_htc_s(t, p, m):
     re_s = calculate_re_co2(t, p, m)
     pr_s = calculate_pr_co2(t, p)
-    print('re_s',re_s,pr_s)
+    #print('re_s',re_s,pr_s)
     rho_pc = 800  # change / look up
     rho_s =  PropsSI("D", "T", t, "P", p, "CO2")  # [kg/m^3]
-    print('sc density', rho_s)
+    #print('sc density', rho_s)
     
     t_pc = ( 273.15 +
         -122.6 + 6.124 * (p * 1e-5) - 0.1657 * (p * 1e-5) ** 2 + 0.01773 * (p * 1e-5) ** 2.5 - 0.0005608 * (p * 1e-5) ** 3 
@@ -123,7 +126,7 @@ def calculate_htc_s(t, p, m):
     ## pressure in eq for t_pc has to be in bar
     # t_pc is calculated in Celsius, added +273.15 term to get Kelvin
 
-    print('t_pc', t_pc)
+    #print('t_pc', t_pc)
     if t > t_pc:
         a = 0.14
         b = 0.69
@@ -160,10 +163,18 @@ def compute_ohtc(t_air, t_s, p_air, p_s, m_air, m_s, tube):
     """    
     # TODO do you need to multiply by n tubes in the z direction?
     surface_area_co2 = tube.calculate_surface_area_co2()
-    print('schaise', surface_area_co2)
-    surface_area_air = tube.calculate_surface_area_air()  # area of the tube
+    #print('schaise', surface_area_co2)
+    [A_t,A_f] = tube.calculate_surface_area_air()# area of the tube
     htc_a = calculate_htc_a(t_air, p_air, m_air, tube)
     htc_s = calculate_htc_s(t_s, p_s, m_s)
+    
+    #calculation of the fin efficiency
+    k_f = 236 # [W*m*K from reference 27] thermal conductivity fin TOCHECK
+    m_efficiency = np.sqrt(2*htc_a/(k_f*tube.t_f))
+    O_efficiency = (tube.d_f/tube.d_ot -1)*(1-0.35*np.log(tube.d_f/tube.d_ot))
+    efficiency_fin = np.tanh(m_efficiency*O_efficiency*(tube.d_ot/2))/m_efficiency*O_efficiency*(tube.d_ot/2)
+    print('efficiency_fin', efficiency_fin)
+    surface_area_air = A_t + efficiency_fin*A_f
     r_1 = 1 / (surface_area_air * htc_a)  # resistance of cold
     r_2 = 0  # negliged resistance of wall
     r_3 = 1 / (surface_area_co2 * htc_s)  # resistance of hot
