@@ -1,25 +1,27 @@
 import numpy as np
-from typing import Iterable
 from CoolProp.CoolProp import PropsSI
+from typing import Iterable
 
 
 class Tube:
     def __init__(self):
-        self.d_ot = 0.025  # [m]        outside tube diameter
-        self.L_t = 9       # [m]  ##TOCHECK     length of tube
-        self.t_f = 5e-4    # [m]        fin thickness
+        # TODO make variable names longer
+        self.d_ot = 0.025  # [m]          outside tube diameter
+        self.L_t = 9  # [m]  ##TOCHECK     length of tube
+        self.t_f = 5e-4  #  [m]           fin thickness
         self.p_f = 2.8e-3  # [m]        fin pitch (distance between fins)
         self.tp = 0.058    # [m]       transversal tube pitch
         self.n_f = np.floor(
             self.L_t / (self.t_f + self.p_f)
         )                  #         number of fins (per tube at the moment)
         self.d_f = 57.15e-3  #  [m]     fin outside diameter
-        self.d_r = 0.028 # [m] fin inside diameter
-        self.d_i = 20e-3 # [m] tube inside diameter
-        #self.h_a = 
-        #self.k_f = 
+        self.d_r = 0.028  # [m] fin inside diameter
+        self.d_i = 20e-3  # [m] tube inside diameter
+
     def calculate_cross_section_air(self):
-        cross_section_tube_s = (self.tp-self.d_ot)*self.L_t-(self.d_f-self.d_ot)*self.t_f*self.n_f
+        cross_section_tube_s = (self.tp - self.d_ot) * self.L_t - (
+            self.d_f - self.d_ot
+        ) * self.t_f * self.n_f
         return cross_section_tube_s
 
     def calculate_surface_area_air(self):   # surface area of entire tube
@@ -30,7 +32,7 @@ class Tube:
         return [A_t,A_f]
 
     def calculate_surface_area_co2(self):
-        surface_area_co2 = 2*np.pi*self.d_i*self.L_t 
+        surface_area_co2 = 2 * np.pi * self.d_i * self.L_t
         return surface_area_co2
 
 
@@ -68,25 +70,8 @@ def calculate_re_co2(t, p, m):
     u = m / (rho * (np.pi * r ** 2))
     #print('flow speed', u)
     L = di
-    Re = (rho * u * L) / mu     # from heat transfer book page 487:
+    Re = (rho * u * L) / mu  # from heat transfer book page 487:
     return Re
-
-
-
-def get_enthalpy(p: Iterable[float], t: Iterable[float], fluid: str = "CO2") -> Iterable[float]:
-    """Compute the enthalpy of a fluid at a given pressure and temperature.
-
-    Args:
-        p (Iterable[float]): Iterable containing the pressures of the fluid in Pa.
-        t (Iterable[float]): Iterable containing the temperatures of the fluid in Kelvin.
-        fluid (str, optional): Fluid to use. Defaults to "CO2".
-
-    Returns:
-        Iterable[float]: Iterable containing the enthalpy of the fluid at the given temperature and pressures in J/kg.
-    """
-    enthalpies = PropsSI("H", "P", p, "T", t, fluid)
-    return enthalpies
-
 
 
 def get_thermal_conductivity(p: Iterable[float], t: Iterable[float], fluid: str = "CO2") -> Iterable[float]:
@@ -119,12 +104,16 @@ def calculate_htc_a(t, p, m, tube: Tube):
     re_a = calculate_re_air(t, p, m, cross_section_air, tube)
     #print('re_a',re_a)
     k_a = 0.025  # W/(mK) thermal conductivity of air #TODO this varies over temperature and pressure
-    htc_a = k_a/ tube.d_ot*(
-        0.134
-        * pr_a ** (1 / 3)
-        * re_a ** 0.681
-        * (2 * (tube.p_f - tube.t_f) / (tube.d_f - tube.d_r))**0.2
-        * ((tube.p_f - tube.t_f) / tube.t_f) ** 0.1134
+    htc_a = (
+        k_a
+        / tube.d_ot
+        * (
+            0.134
+            * pr_a ** (1 / 3)
+            * re_a ** 0.681
+            * (2 * (tube.p_f - tube.t_f) / (tube.d_f - tube.d_r)) ** 0.2
+            * ((tube.p_f - tube.t_f) / tube.t_f) ** 0.1134
+        )
     )
     return htc_a
 
@@ -155,14 +144,14 @@ def calculate_htc_s(t, p, m):
         c = -0.05
         n = 1.6
     Nu_s = a * (re_s ** b) * (pr_s ** c) * (rho_pc / rho_s) ** n       # Nusselt number for sCO2 side
-    k_s = get_thermal_conductivity(p,t,"CO2")                          # thermal conductivity of sCO2 at givem T, p
+    k_s = get_thermal_conductivity(p,t,"CO2")                          # thermal conductivity of sCO2 at given T, p
     htc_s = Nu_s * k_s / tube.d_i                                      # heat transfer coefficient
     
     return htc_s
 
 
 ### T and P are different for air and CO2, OHTC can not be calculated with one pair of values
-### 
+###
 def compute_ohtc(t_air, t_s, p_air, p_s, m_air, m_s, tube):
     """ Computes overall heat transfer coefficient of the heat exchanger for one tube. 
     This is done by calculating HTC_air and HTC_sco2 and taken the inverse of their sum. 
@@ -179,7 +168,7 @@ def compute_ohtc(t_air, t_s, p_air, p_s, m_air, m_s, tube):
 
     Returns:
         _type_: _description_
-    """    
+    """
     # TODO do you need to multiply by n tubes in the z direction?
     surface_area_co2 = tube.calculate_surface_area_co2()
     #print('schaise', surface_area_co2)
@@ -205,9 +194,9 @@ def compute_ohtc(t_air, t_s, p_air, p_s, m_air, m_s, tube):
     return ohtc
 
 
-if __name__  == "__main__":
+if __name__ == "__main__":
     # TESTING:
-    '''
+    """
 
     ### calc Reynolds number for air
     tube = Tube()
@@ -234,10 +223,9 @@ if __name__  == "__main__":
     m= 443 / (120*100)
     htc_s = calculate_htc_s(320, 8e6, m)
     print('htc_s', htc_s)
-    '''
+    """
     tube = Tube()
     m_s = 443 / (120*100)
     m_a = 6.7
     ohtc = compute_ohtc(300, 320, 1e5, 8e6, m_a, m_s , tube)
 
-    print('ohtc', ohtc)

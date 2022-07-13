@@ -1,6 +1,5 @@
 from typing import Iterable
 from CoolProp.CoolProp import PropsSI
-from constants import constants
 import numpy as np
 
 
@@ -51,18 +50,18 @@ def energy_co2(
     return m_co2 * abs(h_out - h_in)
 
 
-def energy_air(mdot: float, t0: float, t1: float) -> float:
-    """Compute the energy transferred into the air.
+# def energy_air(mdot: float, t0: float, t1: float) -> float:
+#     """Compute the energy transferred into the air.
 
-    Args:
-        mdot (float): Mass flow rate of the air.
-        t0 (float): Temperature of the inlet air.
-        t1 (float): Temperature of the outlet air.
+#     Args:
+#         mdot (float): Mass flow rate of the air.
+#         t0 (float): Temperature of the inlet air.
+#         t1 (float): Temperature of the outlet air.
 
-    Returns:
-        float: The energy transferred into the air.
-    """
-    return constants.cp_air * mdot * (t1 - t0)
+#     Returns:
+#         float: The energy transferred into the air.
+#     """
+#     return constants.cp_air * mdot * (t1 - t0)
 
 
 def get_enthalpy(
