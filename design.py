@@ -16,8 +16,7 @@ class Tube:
         self.d_f = 57.15e-3  #  [m]     fin outside diameter
         self.d_r = 0.028 # [m] fin inside diameter
         self.d_i = 20e-3 # [m] tube inside diameter
-        #self.h_a = 
-        #self.k_f = 
+ 
     def calculate_cross_section_air(self):
         cross_section_tube_s = (self.tp-self.d_ot)*self.L_t-(self.d_f-self.d_ot)*self.t_f*self.n_f
         return cross_section_tube_s
@@ -127,7 +126,7 @@ def calculate_htc_a(t, p, m, tube: Tube):
     return htc_a
 
 
-def calculate_htc_s(t, p, m):
+def calculate_htc_s(t, p, m,tube):
     re_s = calculate_re_co2(t, p, m)
     pr_s = calculate_pr_co2(t, p)
     rho_pc = 800  # change / look up
@@ -178,7 +177,7 @@ def compute_ohtc(t_air, t_s, p_air, p_s, m_air, m_s, tube):
     surface_area_co2 = tube.calculate_surface_area_co2()
     [A_t,A_f] = tube.calculate_surface_area_air()   # areas of the segment
     htc_a = calculate_htc_a(t_air, p_air, m_air, tube)
-    htc_s = calculate_htc_s(t_s, p_s, m_s)
+    htc_s = calculate_htc_s(t_s, p_s, m_s,tube)
     
     #calculation of the fin efficiency
     k_f = 236 # [W*m*K from reference 27] thermal conductivity fin TOCHECK
