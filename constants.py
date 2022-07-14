@@ -78,7 +78,7 @@ class constants:
 
     # find air mass flow rate
     cp_air: float = 1005.0  # [J/kg-K]
-    m_co2: float = 443.177  # [kg/s] for 100MW
+    m_co2: float = 58.34625  # 443.177  # [kg/s] for 100MW
     m_air: float = get_m_air(
         p_co2_inlet,
         p_co2_outlet,
@@ -90,3 +90,4 @@ class constants:
         cp_air,
     )
     m_air_segment: float = get_m_air_segment(m_air, n_segments, n_tubes_in_row)
+    m_co2_segment: float = m_co2 /(n_tubes_in_row*n_rows)
