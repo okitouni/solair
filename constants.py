@@ -1,6 +1,6 @@
-from utils import get_enthalpy
 from dataclasses import dataclass
-
+from typing import Iterable
+from CoolProp.CoolProp import PropsSI
 
 def get_m_air(
     p_co2_inlet: float,
@@ -56,6 +56,21 @@ def get_m_air_segment(m_air: float, n_segments: int, n_tubes_in_row: int) -> flo
     )  # divided by number of tubes in a row as we are considering a single tube for all calculations
     return m_air_segment
 
+def get_enthalpy(
+    p: Iterable[float], t: Iterable[float], fluid: str = "CO2"
+) -> Iterable[float]:
+    """Compute the enthalpy of a fluid at a given pressure and temperature.
+
+    Args:
+        p (Iterable[float]): Iterable containing the pressures of the fluid in Pa.
+        t (Iterable[float]): Iterable containing the temperatures of the fluid in Kelvin.
+        fluid (str, optional): Fluid to use. Defaults to "CO2".
+
+    Returns:
+        Iterable[float]: Iterable containing the enthalpy of the fluid at the given temperature and pressures in J/kg.
+    """
+    enthalpies = PropsSI("H", "P", p, "T", t, fluid)
+    return enthalpies
 
 @dataclass
 class constants:

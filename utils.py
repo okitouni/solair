@@ -1,7 +1,8 @@
 from typing import Iterable
 from CoolProp.CoolProp import PropsSI
 import numpy as np
-
+from design import Tube, calculate_re_co2
+from constants import get_enthalpy
 
 def lmtd(t_air_in: float, t_air_out: float, t_co2_in: float, t_co2_out: float) -> float:
     """Compute the LMTD in a segment.
@@ -64,24 +65,10 @@ def energy_co2(
 #     return constants.cp_air * mdot * (t1 - t0)
 
 
-def get_enthalpy(
-    p: Iterable[float], t: Iterable[float], fluid: str = "CO2"
-) -> Iterable[float]:
-    """Compute the enthalpy of a fluid at a given pressure and temperature.
-
-    Args:
-        p (Iterable[float]): Iterable containing the pressures of the fluid in Pa.
-        t (Iterable[float]): Iterable containing the temperatures of the fluid in Kelvin.
-        fluid (str, optional): Fluid to use. Defaults to "CO2".
-
-    Returns:
-        Iterable[float]: Iterable containing the enthalpy of the fluid at the given temperature and pressures in J/kg.
-    """
-    enthalpies = PropsSI("H", "P", p, "T", t, fluid)
-    return enthalpies
 
 
-def drop_pressure(p_in: float) -> float:
+
+def drop_pressure(p_in: float, t: float, m: float, tube:Tube) -> float:
     """Compute the pressure drop of the sCO2 across an element and returns the outlet pressure.
 
     Args:
@@ -90,14 +77,18 @@ def drop_pressure(p_in: float) -> float:
     Returns:
         float: The output pressure of the sCO2.
     """
-    if True:
-        return p_in
+    #if True:
+        #return p_in
     # TODO add pressure constants
-    rho = 1
-    f = 0.112  # from Eq. 16
-    u = 1
-    L = 1
-    d = 1
+    rho = PropsSI("D", "T", t, "P", p_in, "CO2")
+    Re_co2 =  calculate_re_co2(t, p_in, m)
+    z = 1 #TODO check reference (can't find it)
+    f = 8*((8/Re_co2)**(12)+(2.457*np.log(1/((7/Re_co2)**0.9)+0.27*z)**16 + (37530/Re_co2)**16)**(-3/2) )**(1/12)
+    di = tube.d_i  # internal diameter of single tube
+    r = di / 2
+    u = m / (rho * (np.pi * r ** 2))
+    L = tube.L_t
+    d = tube.d_i
     delta_p = (rho * f * u ** 2 * L) / (2 * d)
     p_out = p_in - delta_p
-    return p_out  # TODO how to compute pressure drop
+    return p_out  

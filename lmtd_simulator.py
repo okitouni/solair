@@ -1,7 +1,7 @@
 from collections import defaultdict
 import numpy as np
 from typing import Tuple
-from constants import constants
+from constants import constants, get_enthalpy
 from utils import drop_pressure, lmtd, energy_co2
 from design import compute_ohtc, Tube
 
@@ -111,8 +111,9 @@ class Simulator:
             if max_depth == 0:
                 raise RecursionError("Max depth reached")
             t_co2_out = (left + right) / 2
-            p_co2_out = drop_pressure(p_co2_in)
             m_co2_per_tube = constants.m_co2 / constants.n_tubes_tot
+            p_co2_out = drop_pressure(p_co2_in,t_co2_in,m_co2_per_tube,self.tube)
+            #print('p_co2_out',p_co2_out, 'p_in', p_co2_in)
             q_co2 = energy_co2(p_co2_in, p_co2_out, t_co2_in, t_co2_out, m_co2_per_tube)
             # TODO get m_air for segment
             m_air_segment = (
