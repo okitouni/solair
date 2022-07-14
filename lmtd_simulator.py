@@ -8,6 +8,7 @@ from design import compute_ohtc, Tube
 
 
 class Simulator:
+    
     def __init__(self, tube: Tube = None) -> None:
         """Initialize the simulator with a specific tube design.
 
