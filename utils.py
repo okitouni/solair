@@ -1,5 +1,3 @@
-from ast import Raise
-from typing import Iterable
 from CoolProp.CoolProp import PropsSI
 import numpy as np
 from design import Tube, calculate_re_co2
@@ -95,9 +93,11 @@ def get_enthalpy(p: float, t: float, fluid: str = "CO2", fast=True) -> float:
     Returns:
         float: The enthalpy of the fluid at the given temperature and pressure in J/kg.
     """
+    if fluid.lower() != "co2" and fast:
+        warnings.warn(
+            f"Provided fluid: {fluid}. Only CO2 is supported for fast enthalpy calculation. Using PropsSI. Set fast to False to silence this warning."
+        )
     if fast:
-        if fluid.lower() != "co2":
-            Raise(ValueError("Only CO2 is supported for fast enthalpy. Got {}".format(fluid)))
         if t > 345.98 or t < 306.15:
             warnings.warn(
                 f"Temperature {t} outside of range of enthalpy table. Acceptable range is 306.15 to 345.98 K."
@@ -114,9 +114,8 @@ def get_enthalpy(p: float, t: float, fluid: str = "CO2", fast=True) -> float:
     return h
 
 
-def drop_pressure(p_in: float) -> float:
-    """
-    Compute the pressure drop of the sCO2 across an element and returns the outlet pressure.
+def drop_pressure(p_in: float, t: float, m: float, tube:Tube) -> float:
+    """Compute the pressure drop of the sCO2 across an element and returns the outlet pressure.
 
     Args:
         p_in (_type_): Initial pressure of the sCO2.
@@ -124,20 +123,13 @@ def drop_pressure(p_in: float) -> float:
     Returns:
         float: The output pressure of the sCO2.
     """
-    # if True:
-    # return p_in
+    #if True:
+        #return p_in
     # TODO add pressure constants
     rho = PropsSI("D", "T", t, "P", p_in, "CO2")
-    Re_co2 = calculate_re_co2(t, p_in, m)
-    z = 1  # TODO check reference (can't find it)
-    f = 8 * (
-        (8 / Re_co2) ** (12)
-        + (
-            2.457 * np.log(1 / ((7 / Re_co2) ** 0.9) + 0.27 * z) ** 16
-            + (37530 / Re_co2) ** 16
-        )
-        ** (-3 / 2)
-    ) ** (1 / 12)
+    Re_co2 =  calculate_re_co2(t, p_in, m)
+    z = 1 #TODO check reference (can't find it)
+    f = 8*((8/Re_co2)**(12)+(2.457*np.log(1/((7/Re_co2)**0.9)+0.27*z)**16 + (37530/Re_co2)**16)**(-3/2) )**(1/12)
     di = tube.d_i  # internal diameter of single tube
     r = di / 2
     u = m / (rho * (np.pi * r ** 2))
@@ -145,4 +137,4 @@ def drop_pressure(p_in: float) -> float:
     d = tube.d_i
     delta_p = (rho * f * u ** 2 * L) / (2 * d)
     p_out = p_in - delta_p
-    return p_out
+    return p_out 
