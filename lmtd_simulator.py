@@ -121,7 +121,7 @@ class Simulator:
             )  # divided by number of tubes in a row as we are considering a single tube for all calculations            # compute air out temp from heat transfer into air
             t_air_out = q_co2 / (m_air_segment * constants.cp_air) + t_air_in
 
-            if np.isclose(t_co2_out, constants.t_co2_inlet, rtol=0.001):
+            if np.isclose(t_co2_out, constants.t_co2_inlet, rtol=constants.tolerance):
                 self.converged = True
                 if self._verbose > 0:
                     print("Converged")
@@ -134,7 +134,7 @@ class Simulator:
                 # if self._verbose > 2:
                 #     print("t_co2_out:", t_co2_out, "t_air_out:", t_air_out),
                 right = t_co2_out
-                return binary_search_temps(left, right, 1000)
+                return binary_search_temps(left, right, max_depth - 1)
 
             delta_t_m = lmtd(t_air_in, t_air_out, t_co2_in, t_co2_out)
 
