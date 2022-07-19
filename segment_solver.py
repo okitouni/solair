@@ -1,3 +1,4 @@
+from typing import Dict, Iterable, List, Tuple, Union
 from constants import constants
 import numpy as np
 from utils import drop_pressure, energy_co2, lmtd
@@ -8,7 +9,7 @@ from collections import defaultdict
 class Simulator:
     def __init__(self, tube, verbose: int = 0):
         self.tube = tube
-        self.properties = defaultdict(list)
+        self.results = defaultdict(list)
         self.converged = False
         self.n_segments = 100
         self._verbose = verbose
@@ -74,7 +75,7 @@ class Simulator:
         self,
         p_co2_init: float,
         t_co2_init: float,
-        t_air_init: float = None,
+        t_air_init: Union[float, Iterable[float]] = None,
         upstream: bool = False,
     ):
         """
@@ -102,10 +103,20 @@ class Simulator:
         p_co2_out = p_co2_init
 
         if t_air_init is None:
-            t_air_in_list = self.properties["t_air"][-1]
+            t_air_in_list = self.results["t_air"][-1]
+        elif isinstance(t_air_init, Iterable):
+            t_air_in_list = t_air_init
+            if len(t_air_in_list) != self.n_segments:
+                raise ValueError(
+                    "Length of t_air_init must be equal to n_segments. Got {} instead.".format(
+                        len(t_air_in_list)
+                    )
+                )
         else:
             t_air_in_list = [t_air_init] * self.n_segments
-        if not upstream:
+
+        if upstream:
+            # going upstream so reverse the list which is going downstream
             t_air_in_list.reverse()
 
         for segment_num in range(self.n_segments):
@@ -128,10 +139,11 @@ class Simulator:
             tube_t_co2.append(t_co2_out)
             tube_t_air.append(t_air_out)
             tube_p_co2.append(p_co2_out)
-
-        self.properties["t_co2"].append(tube_t_co2)
-        self.properties["t_air"].append(tube_t_air)
-        self.properties["p_co2"].append(tube_p_co2)
+        if upstream:
+            # arrays are stored in the same direction as the flow
+            tube_t_co2.reverse()
+            tube_t_air.reverse()
+            tube_p_co2.reverse()
         return tube_t_air, tube_t_co2, tube_p_co2
 
     def binary_search(
@@ -299,31 +311,111 @@ class Simulator:
             else:
                 return 3
 
-    def run(self):
-        p_co2_init = constants.p_co2_outlet
-        t_co2_init = constants.t_co2_outlet
-        t_air_init = constants.t_air_inlet
-        if self._verbose > 0:
-            print("Initial conditions:")
-            print("t_co2_in:", t_co2_init, "t_air_in:", t_air_init)
-        # Start the solver from the CO2 outlet and air inlet and go upstream of the CO2 flow.
-        tube_t_air, tube_t_co2, tube_p_co2 = self._solve_tube(
-            p_co2_init=p_co2_init,
-            t_co2_init=t_co2_init,
-            t_air_init=t_air_init,
-            upstream=True,
-        )
+    def _start_shx(self, n_rows: int = constants.n_rows) -> Tuple[List]:
+        """
+        Simulate the first Sub-Heat Exchanger (SHX) in the system 
+        (this will be the closes SHX to the CO2 outlet).
 
-        for _ in range(0):
-            _ = self._solve_tube(
-                p_co2_init=tube_p_co2[-1],
-                t_co2_init=tube_t_co2[-1],
-                t_air_init=None,
-                upstream=False,
-            )
+        Args:
+            n_rows (int, optional): Number of rows of tubes in the SHX. Defaults to constants.n_rows.
 
+        Returns:
+            Tuple[List]: Tuple containing the temperature of air and 
+            the temperature and pressure of the CO2 in the last tube. 
+        """        
+
+        for i in range(n_rows):
+            if i == 0:
+                p_co2_init = constants.p_co2_outlet
+                t_co2_init = constants.t_co2_outlet
+                t_air_init = constants.t_air_inlet
+                if self._verbose > 0:
+                    print("Initial conditions:")
+                    print("t_co2_in:", t_co2_init, "t_air_in:", t_air_init)
+                # Start the solver from the CO2 outlet and air inlet and go upstream of the CO2 flow.
+                tube_t_air, tube_t_co2, tube_p_co2 = self._solve_tube(
+                    p_co2_init=p_co2_init,
+                    t_co2_init=t_co2_init,
+                    t_air_init=t_air_init,
+                    upstream=True,
+                )
+            else:
+                tube_t_air, tube_t_co2, tube_p_co2 = self._solve_tube(
+                    p_co2_init=tube_p_co2[0],
+                    t_co2_init=tube_t_co2[0],
+                    t_air_init=None,
+                    upstream=False,
+                )
+            # At each row, save the temperature and pressure of the air and CO2 in the tube.
+            self.results["t_co2"].append(tube_t_co2)
+            self.results["t_air"].append(tube_t_air)
+            self.results["p_co2"].append(tube_p_co2)
 
         return tube_t_air, tube_t_co2, tube_p_co2
+
+    def _intermediate_shx(self, n_rows: int = constants.n_rows) -> Dict:
+        """
+        Solve an intermediate Sub-Heat Exchanger (SHX). 
+        The difference between this and the start SHX is that the initial conditions of the SHX 
+        (outlet temperature and pressure) have to be guessed and corrected for in an iterative way.
+
+        Args:
+            n_rows (int, optional): 
+                Number of rows of tubes in the SHX. Defaults to constants.n_rows.
+
+        Returns:
+            Dict: Dictionary with the CO2 and air properties at the SHX.
+        """       
+
+        results = defaultdict(list)
+        for i in range(n_rows):
+            if i == 0:
+                # guess the same temperature as the input (flow-wise) to previous shx
+                guess_t_co2 = self.results["t_co2"][-1][0]
+                guess_p_co2 = self.results["p_co2"][-1][0]
+                t_air_init = self.results["t_air"][-1]
+                # Begin solving from the outlet of current shx and go upstream of the CO2 flow.
+                if self._verbose > 0:
+                    print("Solving next SHX. Guess for initial conditions:")
+                    print("t_co2_in:", guess_t_co2, "p_co2_in:", guess_p_co2)
+                # Start the solver from the CO2 outlet and air inlet and go upstream of the CO2 flow.
+                tube_t_air, tube_t_co2, tube_p_co2 = self._solve_tube(
+                    p_co2_init=guess_p_co2,
+                    t_co2_init=guess_t_co2,
+                    t_air_init=t_air_init,
+                    upstream=True,
+                )
+            else:
+                tube_t_air, tube_t_co2, tube_p_co2 = self._solve_tube(
+                    p_co2_init=tube_p_co2[0],
+                    t_co2_init=tube_t_co2[0],
+                    t_air_init=None,
+                    upstream=False,
+                )
+            # At each row, save the temperature and pressure of the air and CO2 in the tube.
+            results["t_co2"].append(tube_t_co2)
+            results["t_air"].append(tube_t_air)
+            results["p_co2"].append(tube_p_co2)
+        
+        return results
+
+    def run(self):
+        """ Run the entire simulation.
+        """        
+        tube_t_air, tube_t_co2, tube_p_co2 = self._start_shx()
+        required_shx_t_co2_outlet = tube_t_co2[0]
+        results = self._intermediate_shx()
+        shx_t_co2_outlet = [tube_temperatures[-1] for tube_temperatures in results["t_co2"]]
+        print("SHX t_co2_outlet:", shx_t_co2_outlet)
+        mean_shx_t_co2_outlet = np.mean(shx_t_co2_outlet)
+        print("Mean SHX t_co2_outlet:", mean_shx_t_co2_outlet)
+        print("Required SHX t_co2_outlet:", required_shx_t_co2_outlet)
+        print(
+            "Percent Error:",
+            (required_shx_t_co2_outlet - mean_shx_t_co2_outlet)
+            / required_shx_t_co2_outlet
+            * 100,
+        )
 
 
 if __name__ == "__main__":
@@ -332,7 +424,7 @@ if __name__ == "__main__":
 
     tube = Tube()
     t0 = time()
-    simulator = Simulator(tube, verbose=0)
+    simulator = Simulator(tube, verbose=1)
     simulator.run()
     t1 = time()
     print("Time:", t1 - t0)
