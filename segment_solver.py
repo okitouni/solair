@@ -7,12 +7,14 @@ from collections import defaultdict
 
 ### TODO stop passing everything in as arguments
 class Simulator:
-    def __init__(self, tube, verbose: int = 0):
+    def __init__(self, tube, verbose: int = 0, max_iterations: int = 100, n_rows: int = constants.n_rows):
         self.tube = tube
         self.results = defaultdict(list)
         self.converged = False
         self.n_segments = 100
         self._verbose = verbose
+        self.max_iterations = max_iterations
+        self.n_rows = n_rows
 
     def _solve_segment(
         self,
@@ -60,12 +62,16 @@ class Simulator:
             lower_bound=lower_bound,
             upper_bound=upper_bound,
             upstream=upstream,
+            max_depth=self.max_iterations
         )
         # solve for t_air_out (AGAIN) # TODO remove this double calculations
-        p_co2_out = drop_pressure(p_co2_in)  # TODO make it give you delta P
+        delta_p = drop_pressure(p_co2_in, t_co2_in, constants.m_co2_segment, self.tube)  # TODO calculation uses incorrect z
+        delta_p = delta_p if upstream else -delta_p
+        p_co2_out = p_co2_in + delta_p
+
         q_co2 = abs(
             energy_co2(
-                p_co2_in, p_co2_out, t_co2_in, t_co2_out, constants.m_co2_per_tube
+                p_co2_in, p_co2_out, t_co2_in, t_co2_out, constants.m_co2_segment
             )
         )
         t_air_out = q_co2 / (constants.m_air_segment * constants.cp_air) + t_air_in
@@ -153,7 +159,7 @@ class Simulator:
         t_co2_in: float,
         lower_bound: float,
         upper_bound: float,
-        max_depth: int = 200,
+        max_depth: int = None,
         upstream: bool = False,
     ) -> float:
         """
@@ -169,57 +175,43 @@ class Simulator:
             upper_bound (float): 
                 Right bound of the search.
             max_depth (int, optional): 
-                Maximum number of iterations. Defaults to 20.
+                Maximum number of iterations. Defaults to self.max_iterations.
             upstream (bool, optional): True 
                 If solver is going upstream of CO2 flow, False if going downstream. Defaults to False.
 
         Returns:
             float: temperature of the final CO2.
         """
+        delta_p = drop_pressure(p_co2_in, t_co2_in, constants.m_co2_segment, self.tube)  # TODO calculation uses incorrect z
+        delta_p = delta_p if upstream else -delta_p
+        p_co2_out = p_co2_in + delta_p
+    
         midpoint = (lower_bound + upper_bound) / 2
         if max_depth == 0:
             return midpoint
         if upstream:
             out = self.energy_balance(
                 p_co2_in=p_co2_in,
+                p_co2_out=p_co2_out, 
                 t_co2_in=t_co2_in,
                 t_co2_out=midpoint,
                 t_air_in=t_air_in,
+                upstream=upstream,
             )
         else:
-            out = self.energy_balance(
+            out =  self.energy_balance(
                 p_co2_in=p_co2_in,
+                p_co2_out=p_co2_out,
                 t_co2_in=midpoint,
                 t_co2_out=t_co2_in,
                 t_air_in=t_air_in,
+                upstream=upstream,
             )
-
-        if out == 1:
-            return midpoint  # TODO also return the temperature of the Air.
-        elif out == 2:  # too little heat from co2
-            if upstream:
-                # increase co2 out temp
-                return self.binary_search(
-                    p_co2_in=p_co2_in,
-                    t_air_in=t_air_in,
-                    t_co2_in=t_co2_in,
-                    lower_bound=midpoint,
-                    upper_bound=upper_bound,
-                    max_depth=max_depth - 1,
-                    upstream=upstream,
-                )
-            else:
-                # decrease co2 out temp
-                return self.binary_search(
-                    p_co2_in=p_co2_in,
-                    t_air_in=t_air_in,
-                    t_co2_in=t_co2_in,
-                    lower_bound=lower_bound,
-                    upper_bound=midpoint,
-                    max_depth=max_depth - 1,
-                    upstream=upstream,
-                )
-        elif out == 3:  # too much heat from co2
+        # THIS IS A HACK
+        if isinstance(out, Iterable):
+            (q_htc, q_co2) = out
+        else:
+            # too much heat from co2
             if not upstream:
                 # increase co2 out temp
                 return self.binary_search(
@@ -241,10 +233,66 @@ class Simulator:
                     upper_bound=midpoint,
                     max_depth=max_depth - 1,
                     upstream=upstream,
+            )
+
+        if self._verbose > 2:
+            print(f"depth: {max_depth}, q_co2: {q_co2:.2f} q_htc: {q_htc:.2f}, t_co2_out: {midpoint:.2f}, p_co2_in: {p_co2_in:.2e}, p_co2_out: {p_co2_out:.2e}")
+            
+        if np.isclose(q_htc, q_co2, rtol=constants.tolerance):
+            return midpoint
+        else:
+            if q_htc > q_co2:
+                # too little heat from co2
+                if upstream:
+                    # increase co2 out temp
+                    return self.binary_search(
+                        p_co2_in=p_co2_in,
+                        t_air_in=t_air_in,
+                        t_co2_in=t_co2_in,
+                        lower_bound=midpoint,
+                        upper_bound=upper_bound,
+                        max_depth=max_depth - 1,
+                        upstream=upstream,
+                    )
+                else:
+                    # decrease co2 out temp
+                    return self.binary_search(
+                        p_co2_in=p_co2_in,
+                        t_air_in=t_air_in,
+                        t_co2_in=t_co2_in,
+                        lower_bound=lower_bound,
+                        upper_bound=midpoint,
+                        max_depth=max_depth - 1,
+                        upstream=upstream,
+                    )
+            else:
+                # too much heat from co2
+                if not upstream:
+                    # increase co2 out temp
+                    return self.binary_search(
+                        p_co2_in=p_co2_in,
+                        t_air_in=t_air_in,
+                        t_co2_in=t_co2_in,
+                        lower_bound=midpoint,
+                        upper_bound=upper_bound,
+                        max_depth=max_depth - 1,
+                        upstream=upstream,
+                    )
+                else:
+                    # decrease co2 out temp
+                    return self.binary_search(
+                        p_co2_in=p_co2_in,
+                        t_air_in=t_air_in,
+                        t_co2_in=t_co2_in,
+                        lower_bound=lower_bound,
+                        upper_bound=midpoint,
+                        max_depth=max_depth - 1,
+                        upstream=upstream,
                 )
 
+    
     def energy_balance(
-        self, p_co2_in: float, t_co2_in: float, t_co2_out: float, t_air_in: float
+        self, p_co2_in: float, p_co2_out: float, t_co2_in: float, t_co2_out: float, t_air_in: float, upstream: bool
     ) -> int:
         """
         Check if the energy balance is satisfied. Compute the heat transfer coefficient from the geometry of the tube.
@@ -253,24 +301,27 @@ class Simulator:
         Args:
             p_co2_in (float): 
                 Pressure of the initial co2 (depends on the direction of the flow).
+            p_co2_out (float): 
+                Pressure of the final co2 (depends on the direction of the flow).
             t_co2_in (float): 
                 Temperature of the initial co2 (depends on the direction of the flow).
             t_co2_out (float): 
                 Temperature of the final co2 (depends on the direction of the flow). This is what you guess.
             t_air_in (float): 
                 Temperature of the initial air. This is always in the direction of air flow.
+            upstream (bool):
+                If solver is going upstream of CO2 flow, False if going downstream.
 
         Returns:
             int: 1 If the energy balance is satisfied, 2 if co2 emitted too little heat, 3 if co2 emitted too much heat.
         """
-        p_co2_out = drop_pressure(p_in=p_co2_in)  # TODO make it give you delta P
+
         q_co2 = abs(
             energy_co2(
-                p_co2_in, p_co2_out, t_co2_in, t_co2_out, constants.m_co2_per_tube
+                p_co2_in, p_co2_out, t_co2_in, t_co2_out, constants.m_co2_segment
             )
         )
         t_air_out = q_co2 / (constants.m_air_segment * constants.cp_air) + t_air_in
-
         if t_air_out > min(t_co2_in, t_co2_out):
             # air out can't be hotter than sCO2 used to heat it
             # air is too hot -> decrease out temp
@@ -299,17 +350,11 @@ class Simulator:
             p_air=p_air,
             p_s=p_co2,
             m_air=constants.m_air_segment,
-            m_s=constants.m_co2_per_tube,
+            m_s=constants.m_co2_segment,
             tube=self.tube,
         )
         q_htc = ohtc * (delta_t_m)
-        if np.isclose(q_htc, q_co2, rtol=constants.tolerance):
-            return 1
-        else:
-            if q_htc > q_co2:
-                return 2
-            else:
-                return 3
+        return (q_htc, q_co2)
 
     def _start_shx(self, n_rows: int = constants.n_rows) -> Tuple[List]:
         """
@@ -402,7 +447,8 @@ class Simulator:
     def run(self):
         """ Run the entire simulation.
         """        
-        tube_t_air, tube_t_co2, tube_p_co2 = self._start_shx()
+        tube_t_air, tube_t_co2, tube_p_co2 = self._start_shx(n_rows=self.n_rows)
+        return
         required_shx_t_co2_outlet = tube_t_co2[0]
         results = self._intermediate_shx()
         shx_t_co2_outlet = [tube_temperatures[-1] for tube_temperatures in results["t_co2"]]
@@ -424,7 +470,7 @@ if __name__ == "__main__":
 
     tube = Tube()
     t0 = time()
-    simulator = Simulator(tube, verbose=1)
+    simulator = Simulator(tube, verbose=3, max_iterations=100, n_rows=1)
     simulator.run()
     t1 = time()
     print("Time:", t1 - t0)
