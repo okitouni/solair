@@ -114,7 +114,7 @@ def get_enthalpy(p: float, t: float, fluid: str = "CO2", fast=True) -> float:
     return h
 
 
-def drop_pressure(p_in: float, t: float, m: float, tube:Tube) -> float:
+def drop_pressure(p_in: float, t: float, m: float, tube: Tube) -> float:
     """Compute the pressure drop of the sCO2 across an element and returns the outlet pressure.
 
     Args:
@@ -123,18 +123,23 @@ def drop_pressure(p_in: float, t: float, m: float, tube:Tube) -> float:
     Returns:
         float: The output pressure of the sCO2.
     """
-    #if True:
-        #return p_in
+    # if True:
+    # return p_in
+    # _delta_pressure = 1 - np.exp(
+    # np.log(1 - 0.375) / 400
+    #)   # drop pressure by 37.5% across the whole length 100 segments * 4 SHX.
+
+    return 0.0001 * p_in#_delta_pressure * p_in
+    # Things are still not working below here
     # TODO add pressure constants
-    rho = PropsSI("D", "T", t, "P", p_in, "CO2")
-    Re_co2 =  calculate_re_co2(t, p_in, m)
-    z = 1 #TODO check reference (can't find it)
-    f = 8*((8/Re_co2)**(12)+(2.457*np.log(1/((7/Re_co2)**0.9)+0.27*z)**16 + (37530/Re_co2)**16)**(-3/2) )**(1/12)
-    di = tube.d_i  # internal diameter of single tube
-    r = di / 2
-    u = m / (rho * (np.pi * r ** 2))
-    L = tube.L_t
-    d = tube.d_i
-    delta_p = (rho * f * u ** 2 * L) / (2 * d)
-    p_out = p_in - delta_p
-    return p_out 
+    # rho = PropsSI("D", "T", t, "P", p_in, "CO2")
+    # Re_co2 =  calculate_re_co2(t, p_in, m)
+    # z = 1 #TODO check reference (can't find it)
+    # f = 8*((8/Re_co2)**(12)+(2.457*np.log(1/((7/Re_co2)**0.9)+0.27*z)**16 + (37530/Re_co2)**16)**(-3/2) )**(1/12)
+    # di = tube.d_i  # internal diameter of single tube
+    # r = di / 2
+    # u = m / (rho * (np.pi * r ** 2))
+    # L = tube.L_t
+    # d = tube.d_i
+    # delta_p = (rho * f * u ** 2 * L) / (2 * d)
+    # return delta_p
