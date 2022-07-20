@@ -129,7 +129,7 @@ def drop_pressure(p_in: float, t: float, m: float, tube: Tube) -> float:
     # np.log(1 - 0.375) / 400
     #)   # drop pressure by 37.5% across the whole length 100 segments * 4 SHX.
 
-    return 0.0001 * p_in#_delta_pressure * p_in
+    return 0.00001 * p_in#_delta_pressure * p_in
     # Things are still not working below here
     # TODO add pressure constants
     # rho = PropsSI("D", "T", t, "P", p_in, "CO2")

@@ -7,7 +7,13 @@ from collections import defaultdict
 
 ### TODO stop passing everything in as arguments
 class Simulator:
-    def __init__(self, tube, verbose: int = 0, max_iterations: int = 100, n_rows: int = constants.n_rows):
+    def __init__(
+        self,
+        tube,
+        verbose: int = 0,
+        max_iterations: int = 100,
+        n_rows: int = constants.n_rows,
+    ):
         self.tube = tube
         self.results = defaultdict(list)
         self.converged = False
@@ -62,10 +68,12 @@ class Simulator:
             lower_bound=lower_bound,
             upper_bound=upper_bound,
             upstream=upstream,
-            max_depth=self.max_iterations
+            max_depth=self.max_iterations,
         )
         # solve for t_air_out (AGAIN) # TODO remove this double calculations
-        delta_p = drop_pressure(p_co2_in, t_co2_in, constants.m_co2_segment, self.tube)  # TODO calculation uses incorrect z
+        delta_p = drop_pressure(
+            p_co2_in, t_co2_in, constants.m_co2_segment, self.tube
+        )  # TODO calculation uses incorrect z
         delta_p = delta_p if upstream else -delta_p
         p_co2_out = p_co2_in + delta_p
 
@@ -182,24 +190,26 @@ class Simulator:
         Returns:
             float: temperature of the final CO2.
         """
-        delta_p = drop_pressure(p_co2_in, t_co2_in, constants.m_co2_segment, self.tube)  # TODO calculation uses incorrect z
+        delta_p = drop_pressure(
+            p_co2_in, t_co2_in, constants.m_co2_segment, self.tube
+        )  # TODO calculation uses incorrect z
         delta_p = delta_p if upstream else -delta_p
         p_co2_out = p_co2_in + delta_p
-    
+
         midpoint = (lower_bound + upper_bound) / 2
         if max_depth == 0:
             return midpoint
         if upstream:
             out = self.energy_balance(
                 p_co2_in=p_co2_in,
-                p_co2_out=p_co2_out, 
+                p_co2_out=p_co2_out,
                 t_co2_in=t_co2_in,
                 t_co2_out=midpoint,
                 t_air_in=t_air_in,
                 upstream=upstream,
             )
         else:
-            out =  self.energy_balance(
+            out = self.energy_balance(
                 p_co2_in=p_co2_in,
                 p_co2_out=p_co2_out,
                 t_co2_in=midpoint,
@@ -233,11 +243,13 @@ class Simulator:
                     upper_bound=midpoint,
                     max_depth=max_depth - 1,
                     upstream=upstream,
-            )
+                )
 
         if self._verbose > 2:
-            print(f"depth: {max_depth}, q_co2: {q_co2:.2f} q_htc: {q_htc:.2f}, t_co2_out: {midpoint:.2f}, p_co2_in: {p_co2_in:.2e}, p_co2_out: {p_co2_out:.2e}")
-            
+            print(
+                f"depth: {max_depth}, q_co2: {q_co2:.2f} q_htc: {q_htc:.2f}, t_co2_out: {midpoint:.2f}, p_co2_in: {p_co2_in:.2e}, p_co2_out: {p_co2_out:.2e}"
+            )
+
         if np.isclose(q_htc, q_co2, rtol=constants.tolerance):
             return midpoint
         else:
@@ -288,11 +300,16 @@ class Simulator:
                         upper_bound=midpoint,
                         max_depth=max_depth - 1,
                         upstream=upstream,
-                )
+                    )
 
-    
     def energy_balance(
-        self, p_co2_in: float, p_co2_out: float, t_co2_in: float, t_co2_out: float, t_air_in: float, upstream: bool
+        self,
+        p_co2_in: float,
+        p_co2_out: float,
+        t_co2_in: float,
+        t_co2_out: float,
+        t_air_in: float,
+        upstream: bool,
     ) -> int:
         """
         Check if the energy balance is satisfied. Compute the heat transfer coefficient from the geometry of the tube.
@@ -367,7 +384,7 @@ class Simulator:
         Returns:
             Tuple[List]: Tuple containing the temperature of air and 
             the temperature and pressure of the CO2 in the last tube. 
-        """        
+        """
 
         for i in range(n_rows):
             if i == 0:
@@ -396,9 +413,11 @@ class Simulator:
             self.results["t_air"].append(tube_t_air)
             self.results["p_co2"].append(tube_p_co2)
 
-        return tube_t_air, tube_t_co2, tube_p_co2
+        return self.results
 
-    def _intermediate_shx(self, n_rows: int = constants.n_rows) -> Dict:
+    def _intermediate_shx(
+        self, n_rows: int = constants.n_rows, guess_t_co2: float = None
+    ) -> Dict:
         """
         Solve an intermediate Sub-Heat Exchanger (SHX). 
         The difference between this and the start SHX is that the initial conditions of the SHX 
@@ -407,22 +426,25 @@ class Simulator:
         Args:
             n_rows (int, optional): 
                 Number of rows of tubes in the SHX. Defaults to constants.n_rows.
+            guess_t_co2 (float, optional): 
+                Guess for the outlet temperature of the last row before the next SHX. 
+                Defaults to the temperature at the previous row - 1.
 
         Returns:
             Dict: Dictionary with the CO2 and air properties at the SHX.
-        """       
+        """
 
         results = defaultdict(list)
         for i in range(n_rows):
             if i == 0:
                 # guess the same temperature as the input (flow-wise) to previous shx
-                guess_t_co2 = self.results["t_co2"][-1][0]
+                guess_t_co2 = guess_t_co2 or self.results["t_co2"][-1][0] - 1
                 guess_p_co2 = self.results["p_co2"][-1][0]
                 t_air_init = self.results["t_air"][-1]
                 # Begin solving from the outlet of current shx and go upstream of the CO2 flow.
-                if self._verbose > 0:
-                    print("Solving next SHX. Guess for initial conditions:")
-                    print("t_co2_in:", guess_t_co2, "p_co2_in:", guess_p_co2)
+                # if self._verbose > 0:
+                #     print("Solving next SHX. Guess for initial conditions:")
+                #     print("t_co2_in:", guess_t_co2, "p_co2_in:", guess_p_co2)
                 # Start the solver from the CO2 outlet and air inlet and go upstream of the CO2 flow.
                 tube_t_air, tube_t_co2, tube_p_co2 = self._solve_tube(
                     p_co2_init=guess_p_co2,
@@ -441,27 +463,52 @@ class Simulator:
             results["t_co2"].append(tube_t_co2)
             results["t_air"].append(tube_t_air)
             results["p_co2"].append(tube_p_co2)
-        
+
         return results
 
     def run(self):
         """ Run the entire simulation.
-        """        
-        tube_t_air, tube_t_co2, tube_p_co2 = self._start_shx(n_rows=self.n_rows)
-        return
-        required_shx_t_co2_outlet = tube_t_co2[0]
-        results = self._intermediate_shx()
-        shx_t_co2_outlet = [tube_temperatures[-1] for tube_temperatures in results["t_co2"]]
-        print("SHX t_co2_outlet:", shx_t_co2_outlet)
-        mean_shx_t_co2_outlet = np.mean(shx_t_co2_outlet)
-        print("Mean SHX t_co2_outlet:", mean_shx_t_co2_outlet)
-        print("Required SHX t_co2_outlet:", required_shx_t_co2_outlet)
-        print(
-            "Percent Error:",
-            (required_shx_t_co2_outlet - mean_shx_t_co2_outlet)
-            / required_shx_t_co2_outlet
-            * 100,
-        )
+        """
+        results = self._start_shx(n_rows=self.n_rows)
+
+        for i in range(6):
+            if self._verbose > 0:
+                print(f"Solving SHX {i}.")
+                print(f"Average input air temp: {np.mean(results['t_air'][-1])}")
+                print(f"Outlet CO2 temp: {results['t_co2'][-1][0]}")
+            required_shx_t_co2_outlet = results["t_co2"][-1][0]
+            converged = False
+            left = required_shx_t_co2_outlet - 2
+            right = required_shx_t_co2_outlet
+            midpoint = required_shx_t_co2_outlet
+            while not converged:
+                results = self._intermediate_shx(guess_t_co2=midpoint)
+                shx_t_co2_outlet = [
+                    tube_temperatures[-1] for tube_temperatures in results["t_co2"]
+                ]
+                mean_shx_t_co2_outlet = np.mean(shx_t_co2_outlet)
+                converged = np.isclose(
+                    required_shx_t_co2_outlet, mean_shx_t_co2_outlet, rtol=constants.tolerance
+                )
+                if required_shx_t_co2_outlet > mean_shx_t_co2_outlet:
+                    left = midpoint
+                else:
+                    right = midpoint
+                midpoint = (left + right) / 2
+                if self._verbose > 2:
+                    print("SHX t_co2_outlet:", shx_t_co2_outlet)
+                    print("Required SHX t_co2_outlet:", required_shx_t_co2_outlet)
+                    print("Mean SHX t_co2_outlet:", mean_shx_t_co2_outlet)
+                    print(
+                        "Percent Error:",
+                        (required_shx_t_co2_outlet - mean_shx_t_co2_outlet)
+                        / (required_shx_t_co2_outlet + mean_shx_t_co2_outlet)
+                        * 200,
+                    )
+            for key, value in results.items():
+                for property_list in value:
+                    self.results[key].append(property_list)
+
 
 
 if __name__ == "__main__":
@@ -470,7 +517,7 @@ if __name__ == "__main__":
 
     tube = Tube()
     t0 = time()
-    simulator = Simulator(tube, verbose=3, max_iterations=100, n_rows=1)
+    simulator = Simulator(tube, verbose=1, max_iterations=100, n_rows=1)
     simulator.run()
     t1 = time()
     print("Time:", t1 - t0)
