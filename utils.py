@@ -1,9 +1,8 @@
+from warnings import warn
 from CoolProp.CoolProp import PropsSI
 import numpy as np
 from design import Tube, calculate_re_co2
 from constants import get_enthalpy
-import pickle
-import warnings
 
 
 def lmtd(t_air_in: float, t_air_out: float, t_co2_in: float, t_co2_out: float) -> float:
@@ -26,17 +25,26 @@ def lmtd(t_air_in: float, t_air_out: float, t_co2_in: float, t_co2_out: float) -
     try:
         assert t_co2_out > t_co2_in and t_air_out > t_air_in and t_co2_in > t_air_out
     except AssertionError:
-        raise ValueError(
-            "Need t_co2_out > t_co2_in > t_air_out > t_air_in\n"
-            "have: t_co2_out = {}, t_co2_in = {}, t_air_out = {}, t_air_in = {}".format(
-                t_co2_out, t_co2_in, t_air_out, t_air_in
+        if t_co2_out == t_co2_in:
+            warn(
+                "t_co2_out == t_co2_in == {}. The simulator may have converged.\
+                If it is desired to go beyond this temperature, change the max_temp\
+                in Simulaotr.".format(
+                    t_co2_out
+                )
             )
-        )
+        else:
+            raise ValueError(
+                "Need t_co2_out > t_co2_in > t_air_out > t_air_in\n"
+                "have: t_co2_out = {}, t_co2_in = {}, t_air_out = {}, t_air_in = {}".format(
+                    t_co2_out, t_co2_in, t_air_out, t_air_in
+                )
+            )
     return delta / np.log((t_co2_in - t_air_out) / (t_co2_out - t_air_in))
 
 
 def energy_co2(
-    p_in: float, p_out: float, t_in: float, t_out: float, m_co2: float
+    p_in: float, p_out: float, t_in: float, t_out: float, m_co2: float, fast=True
 ) -> float:
     """
     Compute the energy transferred out of the sCO2.
@@ -50,12 +58,14 @@ def energy_co2(
             Initial temperature of the sCO2.
         t_out (float): 
             Final temperature of the sCO2.
+        fast (bool, optional):
+            Use the fast enthalpy function. Defaults to True.
 
     Returns:
         float: The energy transferred out of the sCO2.
     """
-    h_in = get_enthalpy(p_in, t_in)
-    h_out = get_enthalpy(p_out, t_out)
+    h_in = get_enthalpy(p_in, t_in, fast=fast)
+    h_out = get_enthalpy(p_out, t_out, fast=fast)
     return m_co2 * abs(h_out - h_in)
 
 
@@ -72,47 +82,6 @@ def energy_co2(
 #     """
 #     return constants.cp_air * mdot * (t1 - t0)
 
-get_enthalpy_pickle = pickle.load(open("sco2_enthalpies.pkl", "rb"))
-
-
-def get_enthalpy(p: float, t: float, fluid: str = "CO2", fast=True) -> float:
-    """
-    Compute the enthalpy of a fluid at a given pressure and temperature. Using scipy interpolation from a pickle file.
-
-    Args:
-        p (float): 
-            Pressure of the fluid in Pa.
-        t (float): 
-            Temperature of the fluid in Kelvin.
-        fluid (str, optional): 
-            Fluid to use. Defaults to "CO2". Not actually used here but kept for consistency.
-        fast (bool, optional): 
-            Use the scipy interpolation version of the function. Defaults to True. 
-            If False, the PropsSI function is used.
-
-    Returns:
-        float: The enthalpy of the fluid at the given temperature and pressure in J/kg.
-    """
-    if fluid.lower() != "co2" and fast:
-        warnings.warn(
-            f"Provided fluid: {fluid}. Only CO2 is supported for fast enthalpy calculation. Using PropsSI. Set fast to False to silence this warning."
-        )
-    if fast:
-        if t > 345.98 or t < 306.15:
-            warnings.warn(
-                f"Temperature {t} outside of range of enthalpy table. Acceptable range is 306.15 to 345.98 K."
-            )
-        if p > 8e6 or p < 7.48e6:
-            warnings.warn(
-                f"Pressure {p} outside of range of enthalpy table. Acceptable range is 7.48e6 to 8e6 Pa."
-            )
-        h = get_enthalpy_pickle(p, t)
-        if len(h) == 1:
-            return h[0]
-    else:
-        h = PropsSI("H", "P", p, "T", t, fluid)
-    return h
-
 
 def drop_pressure(p_in: float, t: float, m: float, tube: Tube) -> float:
     """Compute the pressure drop of the sCO2 across an element and returns the outlet pressure.
@@ -127,19 +96,27 @@ def drop_pressure(p_in: float, t: float, m: float, tube: Tube) -> float:
     # return p_in
     # _delta_pressure = 1 - np.exp(
     # np.log(1 - 0.375) / 400
-    #)   # drop pressure by 37.5% across the whole length 100 segments * 4 SHX.
+    # )   # drop pressure by 37.5% across the whole length 100 segments * 4 SHX.
 
-    return 0.00001 * p_in#_delta_pressure * p_in
+    # return 0.00001 * p_in#_delta_pressure * p_in
     # Things are still not working below here
-    # TODO add pressure constants
-    # rho = PropsSI("D", "T", t, "P", p_in, "CO2")
-    # Re_co2 =  calculate_re_co2(t, p_in, m)
-    # z = 1 #TODO check reference (can't find it)
-    # f = 8*((8/Re_co2)**(12)+(2.457*np.log(1/((7/Re_co2)**0.9)+0.27*z)**16 + (37530/Re_co2)**16)**(-3/2) )**(1/12)
-    # di = tube.d_i  # internal diameter of single tube
-    # r = di / 2
-    # u = m / (rho * (np.pi * r ** 2))
-    # L = tube.L_t
-    # d = tube.d_i
-    # delta_p = (rho * f * u ** 2 * L) / (2 * d)
-    # return delta_p
+    # TODO explain constants and update docstring
+    epsilon = 0.045
+    rho = PropsSI("D", "T", t, "P", p_in, "CO2")
+    Re_co2 = calculate_re_co2(t, p_in, m)
+    z = epsilon / tube.d_i
+    f = 8 * (
+        (8 / Re_co2) ** (12)
+        + (
+            2.457 * np.log(1 / ((7 / Re_co2) ** 0.9) + 0.27 * z) ** 16
+            + (37530 / Re_co2) ** 16
+        )
+        ** (-3 / 2)
+    ) ** (1 / 12)
+    di = tube.d_i  # internal diameter of single tube
+    r = di / 2
+    u = m / (rho * (np.pi * r ** 2))
+    L = tube.L_t
+    d = tube.d_i
+    delta_p = (rho * f * u ** 2 * L) / (2 * d)
+    return delta_p
