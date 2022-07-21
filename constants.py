@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from typing import Iterable
+import pickle
+import warnings
 from CoolProp.CoolProp import PropsSI
 
 def get_m_air(
@@ -55,22 +56,46 @@ def get_m_air_segment(m_air: float, n_segments: int, n_tubes_in_row: int) -> flo
         m_air / n_segments / n_tubes_in_row
     )  # divided by number of tubes in a row as we are considering a single tube for all calculations
     return m_air_segment
+get_enthalpy_pickle = pickle.load(open("sco2_enthalpies.pkl", "rb"))
 
-def get_enthalpy(
-    p: Iterable[float], t: Iterable[float], fluid: str = "CO2"
-) -> Iterable[float]:
-    """Compute the enthalpy of a fluid at a given pressure and temperature.
+def get_enthalpy(p: float, t: float, fluid: str = "CO2", fast=True) -> float:
+    """
+    Compute the enthalpy of a fluid at a given pressure and temperature. Using scipy interpolation from a pickle file.
 
     Args:
-        p (Iterable[float]): Iterable containing the pressures of the fluid in Pa.
-        t (Iterable[float]): Iterable containing the temperatures of the fluid in Kelvin.
-        fluid (str, optional): Fluid to use. Defaults to "CO2".
+        p (float): 
+            Pressure of the fluid in Pa.
+        t (float): 
+            Temperature of the fluid in Kelvin.
+        fluid (str, optional): 
+            Fluid to use. Defaults to "CO2". Not actually used here but kept for consistency.
+        fast (bool, optional): 
+            Use the scipy interpolation version of the function. Defaults to True. 
+            If False, the PropsSI function is used.
 
     Returns:
-        Iterable[float]: Iterable containing the enthalpy of the fluid at the given temperature and pressures in J/kg.
+        float: The enthalpy of the fluid at the given temperature and pressure in J/kg.
     """
-    enthalpies = PropsSI("H", "P", p, "T", t, fluid)
-    return enthalpies
+    if fluid.lower() != "co2" and fast:
+        warnings.warn(
+            f"Provided fluid: {fluid}. Only CO2 is supported for fast enthalpy calculation. Using PropsSI. Set fast to False to silence this warning."
+        )
+    if fast:
+        if t > 345.98 + 50 or t < 306.15: # TODO make this a constant
+            warnings.warn(
+                f"Temperature {t} outside of range of enthalpy table. Acceptable range is 306.15 to 345.98 K."
+            )
+        if p > 8e6 or p < 7.48e6:
+            warnings.warn(
+                f"Pressure {p} outside of range of enthalpy table. Acceptable range is 7.48e6 to 8e6 Pa."
+            )
+        h = get_enthalpy_pickle(p, t)
+        if len(h) == 1:
+            return h[0]
+    else:
+        h = PropsSI("H", "P", p, "T", t, fluid)
+    return h
+
 
 @dataclass
 class constants:
