@@ -77,24 +77,24 @@ class constants:
     # solver tolerance
     tolerance: float = 0.01  # tolerance in heat error to use in temperature search
     # design constants
-    n_segments: int = 100
-    n_tubes_in_row: int = 30
-    n_rows: int = 4
-    n_tubes_tot: int = n_tubes_in_row * n_rows
+    n_segments: int = 30       #done
+    n_tubes_in_row: int = 47.5  #done
+    n_rows: int = 4             #done
+    n_tubes_tot: int = n_tubes_in_row * n_rows  #done 190
 
     # thermodynamic constants
-    t_co2_inlet: float = 72.83 + 273.15
-    t_co2_outlet: float = 33 + 273.15
-    p_co2_inlet: float = 8e6
-    p_co2_outlet: float = 7.48e6
-    t_air_inlet: float = 25 + 273.15
-    t_air_outlet: float = 60 + 273.15  # guess outlet air T, cannot be higher than T_CO2_in
-    p_air_in: float = 101000
+    t_co2_inlet: float = 71 + 273.15        #done
+    t_co2_outlet: float = 40.3 + 273.15     #done
+    p_co2_inlet: float = 7.5e6              #done
+    p_co2_outlet: float = 7.4999e6          #done
+    t_air_inlet: float = 20 + 273.15        #done
+    t_air_outlet: float = 43.4 + 273.15     #done 
+    p_air_in: float = 99695                 #done
 
     # find air mass flow rate
     cp_air: float = 1005.0  # [J/kg-K]
-    m_co2: float = 58.34625  # 443.177  # [kg/s] for 100MW
-    m_air: float = get_m_air(
+    m_co2: float = 406.6                    # done
+    m_air: float = get_m_air(               # must equal 1107
         p_co2_inlet,
         p_co2_outlet,
         t_co2_inlet,
@@ -106,3 +106,5 @@ class constants:
     )
     m_air_segment: float = get_m_air_segment(m_air, n_segments, n_tubes_in_row)
     m_co2_segment: float = m_co2 /(n_tubes_in_row*n_rows)
+
+    
