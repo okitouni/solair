@@ -1,21 +1,21 @@
 import numpy as np
 from typing import Iterable
 from CoolProp.CoolProp import PropsSI
-from constants import constants
+from constants import constants, get_m_air
 
 class Tube:
     def __init__(self):
-        self.d_ot = 0.025  # [m]        outside tube diameter
-        self.L_t = 9 / constants.n_segments # [m]  length of tube / number of segments = length of segment
-        self.t_f = 5e-4    # [m]        fin thickness
-        self.p_f = 2.8e-3  # [m]        fin pitch (distance between fins)
-        self.tp = 0.058    # [m]       transversal tube pitch
+        self.d_ot = 0.025  # [m]                #done                outside tube diameter
+        self.L_t = 6 / constants.n_segments     # done              [m]  length of tube / number of segments = length of segment
+        self.t_f = 7.5e-4    # [m]              #done                fin root thickness
+        self.p_f = 2.8e-3  # [m]                #done                 fin pitch (distance between fins)
+        self.tp = 0.058    # [m]                #done                  transversal tube pitch
         self.n_f = np.floor(
             self.L_t / (self.t_f + self.p_f)
         )                  #         number of fins (per segment)
-        self.d_f = 57.15e-3  #  [m]     fin outside diameter
-        self.d_r = 0.028 # [m] fin inside diameter
-        self.d_i = 20e-3 # [m] tube inside diameter
+        self.d_f = 57e-3  #  [m]                #done                   fin outside diameter
+        self.d_r = 28e-3 # [m]                  #done                   fin inside diameter
+        self.d_i = 20e-3 # [m]                  #done                   tube inside diameter
  
     def calculate_cross_section_air(self):
         cross_section_tube_s = (self.tp-self.d_ot)*self.L_t-(self.d_f-self.d_ot)*self.t_f*self.n_f
@@ -29,7 +29,7 @@ class Tube:
         return [A_t,A_f]
 
     def calculate_surface_area_co2(self):
-        surface_area_co2 = 2*np.pi*self.d_i*self.L_t 
+        surface_area_co2 = np.pi*self.d_i*self.L_t          # removed factor of 2 here!!
         return surface_area_co2
 
 
@@ -62,7 +62,7 @@ def calculate_re_air(t, p, m, cross_section_air, tube: Tube):
 def calculate_re_co2(t, p, m):
     rho = PropsSI("D", "T", t, "P", p, "CO2")  # density
     mu = PropsSI("V", "T", t, "P", p, "CO2")  #
-    di = 0.02  # internal diameter of single tube
+    di = 20e-3  # internal diameter of single tube
     r = di / 2
     u = m / (rho * (np.pi * r ** 2))
     L = di
@@ -180,7 +180,7 @@ def compute_ohtc(t_air, t_s, p_air, p_s, m_air, m_s, tube):
     htc_s = calculate_htc_s(t_s, p_s, m_s,tube)
     
     #calculation of the fin efficiency
-    k_f = 236 # [W*m*K from reference 27] thermal conductivity fin TOCHECK
+    k_f = 204 #[W*m*K]       #done (adjust to Ehsan)  thermal conductivity fin 
     m_efficiency = np.sqrt(2*htc_a/(k_f*tube.t_f))
     O_efficiency = (tube.d_f/tube.d_ot -1)*(1+0.35*np.log(tube.d_f/tube.d_ot))
     efficiency_fin = np.tanh(m_efficiency*O_efficiency*(tube.d_ot/2))/(m_efficiency*O_efficiency*(tube.d_ot/2))
@@ -200,14 +200,27 @@ if __name__  == "__main__":
     # TESTING:    
 
     tube = Tube()
-    m_s =  58.34625 / 120 #443 / (120*100)
-    m_a = 6.7 /constants.n_segments
+    m_s =  406.6 / 190 / 49 # #443 / (120*100)
+    #m_a = 1107 /constants.n_segments
+    m_a = get_m_air(
+        constants.p_co2_inlet,
+        constants.p_co2_outlet,
+        constants.t_co2_inlet,
+        constants.t_co2_outlet,
+        constants.t_air_inlet,
+        constants.t_air_outlet,
+        constants.m_co2,
+        constants.cp_air
+    )
+    print('m_air = ', round(m_a,2), 'ref: 1107')
 
-    htc_s = calculate_htc_s(320, 8e6, m_s)
-    print('htc_s', htc_s)
+    m_a = m_a /190 /49  # for htc_air we are looking at air flow across one tube
 
-    htc_a = calculate_htc_a(300, 1e5, m_a, tube)
-    print('htc_a',htc_a)
+    htc_s = calculate_htc_s(constants.t_co2_inlet, constants.p_co2_inlet, m_s, tube)
+    print('htc_s', round(htc_s,2), 'ref: ca 750 (fig11)')
+
+    htc_a = calculate_htc_a(constants.t_air_inlet, constants.p_air_in, m_a, tube)
+    print('htc_a',round(htc_a,2), 'ref: 31.3 avg in first row')
 
     ohtc = compute_ohtc(300, 320, 1e5, 8e6, m_a, m_s , tube)
     print('ohtc', ohtc)
@@ -219,5 +232,38 @@ if __name__  == "__main__":
     re_CO2 = calculate_re_co2(320, 8e6, m_s)
     print('re_CO2',re_CO2)
 
+    area_air = tube.calculate_surface_area_air()
+    print('area_air', (area_air[0]+area_air[1])*190*49*30)
+
+    area_CO2 = tube.calculate_surface_area_co2()
+    print('area_co2', area_CO2*190*49*30)
+
+
+
+    '''
+    enthalpy = get_enthalpy(836, 320)
+    print('enthalpy', enthalpy)
+
+    print('m_air',constants.m_air)
+
+
+    #c_p_air = 
+
+    C_min = 1005 * 6.7 #10.21   # 10291
+    C_max = 525e3 * 48 #3.7    # 1.944e3
+    print ('C_max', C_max)
+
+    UA =  4.4 * 100 * 360              #  = OHTC = OHTC_segmant * n_segments * n_tubes
+
+    C = C_min / C_max # =  0.005293
+    N = UA / C_min #  0.0004276 for one segment
+
+    e = (1 - np.exp(-C*(1-np.exp(-N))))/C   # cross flow with Cmax fluid mixed
+
+    e2 = 1 - np.exp( N**(0.22) * (np.exp(-C*N**(0.78))-1)/C)
+    
+    print('N', N)
+    print('effectivity of our heat exchanger:',e2)
+'''
 ### htc of air does not change between tube and segment if mass flow rate is adjusted
 ### ohtc now scales proportionally between n segments = 1 (ohtc = 335) and n_segments = 100 (ohtc=3.38)
