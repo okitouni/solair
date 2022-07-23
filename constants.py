@@ -3,6 +3,7 @@ import pickle
 import warnings
 from CoolProp.CoolProp import PropsSI
 
+
 def get_m_air(
     p_co2_inlet: float,
     p_co2_outlet: float,
@@ -56,7 +57,10 @@ def get_m_air_segment(m_air: float, n_segments: int, n_tubes_in_row: int) -> flo
         m_air / n_segments / n_tubes_in_row
     )  # divided by number of tubes in a row as we are considering a single tube for all calculations
     return m_air_segment
+
+
 get_enthalpy_pickle = pickle.load(open("sco2_enthalpies.pkl", "rb"))
+
 
 def get_enthalpy(p: float, t: float, fluid: str = "CO2", fast=True) -> float:
     """
@@ -81,7 +85,7 @@ def get_enthalpy(p: float, t: float, fluid: str = "CO2", fast=True) -> float:
             f"Provided fluid: {fluid}. Only CO2 is supported for fast enthalpy calculation. Using PropsSI. Set fast to False to silence this warning."
         )
     if fast:
-        if t > 345.98 + 50 or t < 306.15: # TODO make this a constant
+        if t > 345.98 + 50 or t < 306.15:  # TODO make this a constant
             warnings.warn(
                 f"Temperature {t} outside of range of enthalpy table. Acceptable range is 306.15 to 345.98 K."
             )
@@ -129,7 +133,6 @@ class constants:
     #     m_co2,
     #     cp_air,
     # )
-    m_air: float = 6 # [kg/s] for 100MW
-    print(f"Mass flow rate of air: {m_air} kg/s")
+    m_air: float = 15  # [kg/s] for 100MW
     m_air_segment: float = get_m_air_segment(m_air, n_segments, n_tubes_in_row)
-    m_co2_segment: float = m_co2 /(n_tubes_in_row*n_rows)
+    m_co2_segment: float = m_co2 / (n_tubes_in_row * n_rows)
