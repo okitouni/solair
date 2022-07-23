@@ -25,21 +25,13 @@ def lmtd(t_air_in: float, t_air_out: float, t_co2_in: float, t_co2_out: float) -
     try:
         assert t_co2_out > t_co2_in and t_air_out > t_air_in and t_co2_in > t_air_out
     except AssertionError:
-        if t_co2_out == t_co2_in:
-            warn(
-                "t_co2_out == t_co2_in == {}. The simulator may have converged.\
-                If it is desired to go beyond this temperature, change the max_temp\
-                in Simulaotr.".format(
-                    t_co2_out
-                )
+        raise ValueError(
+            "Need t_co2_out > t_co2_in > t_air_out > t_air_in\n"
+            "have: t_co2_out = {}, t_co2_in = {}, t_air_out = {}, t_air_in = {}\n"
+            "This error is usually thrown when the model converges and t_co2_out == t_co2_in.".format(
+                t_co2_out, t_co2_in, t_air_out, t_air_in
             )
-        else:
-            raise ValueError(
-                "Need t_co2_out > t_co2_in > t_air_out > t_air_in\n"
-                "have: t_co2_out = {}, t_co2_in = {}, t_air_out = {}, t_air_in = {}".format(
-                    t_co2_out, t_co2_in, t_air_out, t_air_in
-                )
-            )
+        )
     return delta / np.log((t_co2_in - t_air_out) / (t_co2_out - t_air_in))
 
 
@@ -98,25 +90,25 @@ def drop_pressure(p_in: float, t: float, m: float, tube: Tube) -> float:
     # np.log(1 - 0.375) / 400
     # )   # drop pressure by 37.5% across the whole length 100 segments * 4 SHX.
 
-    # return 0.00001 * p_in#_delta_pressure * p_in
+    return 0.00001 * p_in  # _delta_pressure * p_in
     # Things are still not working below here
     # TODO explain constants and update docstring
-    epsilon = 0.045
-    rho = PropsSI("D", "T", t, "P", p_in, "CO2")
-    Re_co2 = calculate_re_co2(t, p_in, m)
-    z = epsilon / tube.d_i
-    f = 8 * (
-        (8 / Re_co2) ** (12)
-        + (
-            2.457 * np.log(1 / ((7 / Re_co2) ** 0.9) + 0.27 * z) ** 16
-            + (37530 / Re_co2) ** 16
-        )
-        ** (-3 / 2)
-    ) ** (1 / 12)
-    di = tube.d_i  # internal diameter of single tube
-    r = di / 2
-    u = m / (rho * (np.pi * r ** 2))
-    L = tube.L_t
-    d = tube.d_i
-    delta_p = (rho * f * u ** 2 * L) / (2 * d)
-    return delta_p
+    # epsilon = 0.045
+    # rho = PropsSI("D", "T", t, "P", p_in, "CO2")
+    # Re_co2 = calculate_re_co2(t, p_in, m)
+    # z = epsilon / tube.d_i
+    # f = 8 * (
+    #     (8 / Re_co2) ** (12)
+    #     + (
+    #         2.457 * np.log(1 / ((7 / Re_co2) ** 0.9) + 0.27 * z) ** 16
+    #         + (37530 / Re_co2) ** 16
+    #     )
+    #     ** (-3 / 2)
+    # ) ** (1 / 12)
+    # di = tube.d_i  # internal diameter of single tube
+    # r = di / 2
+    # u = m / (rho * (np.pi * r ** 2))
+    # L = tube.L_t
+    # d = tube.d_i
+    # delta_p = (rho * f * u ** 2 * L) / (2 * d)
+    # return delta_p
