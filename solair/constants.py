@@ -63,7 +63,7 @@ def get_m_air_segment(m_air: float, n_segments: int, n_tubes_in_row: int) -> flo
 # get_enthalpy_pickle = pickle.load(open(path, "rb"))
 
 
-def get_enthalpy(p: float, t: float, fluid: str = "CO2", fast=True) -> float:
+def get_enthalpy(p: float, t: float, fluid: str = "CO2", fast=False) -> float:
     """
     Compute the enthalpy of a fluid at a given pressure and temperature. Using scipy interpolation from a pickle file.
 
@@ -75,7 +75,7 @@ def get_enthalpy(p: float, t: float, fluid: str = "CO2", fast=True) -> float:
         fluid (str, optional): 
             Fluid to use. Defaults to "CO2". Not actually used here but kept for consistency.
         fast (bool, optional): 
-            Use the scipy interpolation version of the function. Defaults to True. 
+            Use the scipy interpolation version of the function. Defaults to False. 
             If False, the PropsSI function is used.
 
     Returns:
