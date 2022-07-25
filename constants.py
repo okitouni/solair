@@ -87,11 +87,13 @@ def get_enthalpy(p: float, t: float, fluid: str = "CO2", fast=True) -> float:
     if fast:
         if t > 345.98 + 50 or t < 306.15:  # TODO make this a constant
             warnings.warn(
-                f"Temperature {t} outside of range of enthalpy table. Acceptable range is 306.15 to 345.98 K."
+                f"Temperature outside of range of enthalpy table. Acceptable range is 306.15 to 345.98 K.",
+                stacklevel=2
             )
         if p > 8e6 or p < 7.48e6:
             warnings.warn(
-                f"Pressure {p} outside of range of enthalpy table. Acceptable range is 7.48e6 to 8e6 Pa."
+                f"Pressure outside of range of enthalpy table. Acceptable range is 7.48e6 to 8e6 Pa.",
+                stacklevel=2
             )
         h = get_enthalpy_pickle(p, t)
         if len(h) == 1:

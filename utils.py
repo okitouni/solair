@@ -58,7 +58,8 @@ def energy_co2(
     """
     h_in = get_enthalpy(p_in, t_in, fast=fast)
     h_out = get_enthalpy(p_out, t_out, fast=fast)
-    return m_co2 * abs(h_out - h_in)
+    q_co2 = m_co2 * abs(h_out - h_in)
+    return q_co2
 
 
 # def energy_air(mdot: float, t0: float, t1: float) -> float:
