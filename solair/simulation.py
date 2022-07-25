@@ -1,8 +1,8 @@
-from typing import Dict, Iterable, List, Tuple, Union
-from constants import constants
+from .constants import constants
+from .utils import drop_pressure, energy_co2, lmtd
+from .design import compute_ohtc, Tube
 import numpy as np
-from utils import drop_pressure, energy_co2, lmtd
-from design import compute_ohtc, Tube
+from typing import Dict, Iterable, List, Tuple, Union
 from collections import defaultdict
 import warnings
 
@@ -29,9 +29,10 @@ class Simulator:
         tube: Tube,
         verbose: int = 0,
         max_iterations: int = 100,
+        n_sub_shx: int = 4,
         n_rows: int = constants.n_rows,
         n_segments: int = constants.n_segments,
-        fast: bool = True,
+        fast: bool = False,
         max_co2_temp: float = constants.t_co2_inlet + 100,
     ):
         """
@@ -49,18 +50,20 @@ class Simulator:
                 and 3 for full debug at every segement.
                 Defaults to 0.
             max_iterations (int, optional): Maximum number of iterations for the binary search. Defaults to 100.
+            n_sub_shx (int, optional): Number of Sub-Heat Exchangers in the heat exchanger. Defaults to 4.
             n_rows (int, optional): Number of rows of tubes per heat exchanger. Defaults to constants.n_rows.
             n_segments (int, optional): Number of segments in a tube. Defaults to constants.n_segments.
-            fast (bool, optional): Whether to use fast scipy interpolation or CoolProp. Defaults to True.
+            fast (bool, optional): Whether to use fast scipy interpolation or CoolProp. Defaults to False.
             max_co2_temp (float, optional): Maximum allowed CO2 temperature. Defaults to constants.t_co2_inlet + 100.
         """
         self.tube = tube
         self.results = defaultdict(list)
         self.converged = False
+        self.n_sub_shx = n_sub_shx
+        self.n_rows = n_rows
         self.n_segments = n_segments
         self._verbose = verbose
         self.max_iterations = max_iterations
-        self.n_rows = n_rows
         self.fast = fast
         self.max_co2_temp = max_co2_temp
 
@@ -534,10 +537,10 @@ class Simulator:
                 self.results[key].append(value_list)
         return results
 
-    def run(self, n_sub_shx: int = 4) -> None:
+    def run(self) -> None:
         """ Run the entire simulation.
         """
-        for i in range(1, n_sub_shx + 1):
+        for i in range(1, self.n_sub_shx + 1):
             if i == 1:
                 # first shx has different initial conditions
                 results = self._start_shx()
@@ -572,16 +575,4 @@ class Simulator:
             print("Simulation complete.")
             print(f"Average air outlet temp: {np.mean(self.results['t_air'][-1]):.2f}")
             print(f"CO2 inlet temp: {self.results['t_co2'][-1][0]:.2f}")
-
-
-if __name__ == "__main__":
-    from time import time
-
-    tube = Tube()
-    t0 = time()
-    print(f"Mass flow rate of air: {constants.m_air} kg/s")
-    simulator = Simulator(tube, verbose=1, max_iterations=100, fast=False)
-    simulator.run(n_sub_shx=5)
-    t1 = time()
-    print(f"Time: {t1 - t0:.2f} seconds")
 

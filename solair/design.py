@@ -1,7 +1,7 @@
+from .constants import constants
+from CoolProp.CoolProp import PropsSI
 import numpy as np
 from typing import Iterable
-from CoolProp.CoolProp import PropsSI
-from constants import constants
 
 class Tube:
     def __init__(self):
