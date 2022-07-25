@@ -59,8 +59,8 @@ def get_m_air_segment(m_air: float, n_segments: int, n_tubes_in_row: int) -> flo
     return m_air_segment
 
 
-path = Path(__file__).parent / "sco2_enthalpies.pkl"
-get_enthalpy_pickle = pickle.load(open(path, "rb"))
+# path = Path(__file__).parent / "sco2_enthalpies.pkl"
+# get_enthalpy_pickle = pickle.load(open(path, "rb"))
 
 
 def get_enthalpy(p: float, t: float, fluid: str = "CO2", fast=True) -> float:
@@ -81,6 +81,8 @@ def get_enthalpy(p: float, t: float, fluid: str = "CO2", fast=True) -> float:
     Returns:
         float: The enthalpy of the fluid at the given temperature and pressure in J/kg.
     """
+    if fast:
+        raise NotImplementedError("Fast enthalpy interpolation not implemented yet.")
     if fluid.lower() != "co2" and fast:
         warnings.warn(
             f"Provided fluid: {fluid}. Only CO2 is supported for fast enthalpy calculation. Using PropsSI. Set fast to False to silence this warning."
@@ -96,7 +98,7 @@ def get_enthalpy(p: float, t: float, fluid: str = "CO2", fast=True) -> float:
                 f"Pressure outside of range of enthalpy table. Acceptable range is 7.48e6 to 8e6 Pa.",
                 stacklevel=2
             )
-        h = get_enthalpy_pickle(p, t)
+        # h = get_enthalpy_pickle(p, t)
         if len(h) == 1:
             return h[0]
     else:
