@@ -1,24 +1,30 @@
 from argparse import ArgumentParser
-from lmtd_simulator import Simulator
-from constants import constants
 from time import time
-
+from solair.simulation import Simulator
+from solair.constants import constants
+from solair.design import Tube
 
 parser = ArgumentParser()
 parser.add_argument("-n", "--n_segments", type=int, default=100)
-parser.add_argument("-v", "--verbose", type=int, default=2)
-parser.add_argument("-d", "--max_depth", type=int, default=2000)
+parser.add_argument("-v", "--verbose", type=int, default=1)
+parser.add_argument("-d", "--max_depth", type=int, default=100)
 
 
+def main(args):
+    start = time()
+    sim = Simulator(
+        Tube(),
+        verbose=args.verbose,
+        n_segments=args.n_segments,
+        max_iterations=args.max_depth,
+        fast=False,
+    )
+    sim.run()
+    end = time()
+    print("Time: {:.2f} seconds".format(end - start))
 
-def main():
-    args = parser.parse_args()
-    t0 = time()
-    simulator = Simulator()
-    simulator.run(constants.t_co2_outlet, constants.t_air_inlet, max_segments=args.n_segments, verbose=args.verbose, max_depth=args.max_depth)
-    t1 = time()
-    print(f"Time: {t1-t0}")
-    return 1
 
 if __name__ == "__main__":
-    main()
+    print(f"Mass flow rate of air: {constants.m_air} kg/s")
+    args = parser.parse_args()
+    main(args)

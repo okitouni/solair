@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import pickle
 import warnings
 from CoolProp.CoolProp import PropsSI
-
+from pathlib import Path
 
 def get_m_air(
     p_co2_inlet: float,
@@ -59,7 +59,8 @@ def get_m_air_segment(m_air: float, n_segments: int, n_tubes_in_row: int) -> flo
     return m_air_segment
 
 
-get_enthalpy_pickle = pickle.load(open("sco2_enthalpies.pkl", "rb"))
+path = Path(__file__).parent / "sco2_enthalpies.pkl"
+get_enthalpy_pickle = pickle.load(open(path, "rb"))
 
 
 def get_enthalpy(p: float, t: float, fluid: str = "CO2", fast=True) -> float:
