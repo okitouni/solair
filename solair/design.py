@@ -3,19 +3,33 @@ from CoolProp.CoolProp import PropsSI
 import numpy as np
 from typing import Iterable
 
+
 class Tube:
-    def __init__(self):
-        self.d_ot = 0.025  # [m]                #done                outside tube diameter
-        self.L_t = 6 / constants.n_segments     # done              [m]  length of tube / number of segments = length of segment
-        self.t_f = 7.5e-4    # [m]              #done                fin root thickness
-        self.p_f = 2.8e-3  # [m]                #done                 fin pitch (distance between fins)
-        self.tp = 0.058    # [m]                #done                  transversal tube pitch
+    def __init__(
+        self,
+        tube_out_diameter: float = 0.025,
+        tube_in_diameter: float = 20e-3,
+        tube_length: float = 6,
+        tube_transverse_pitch=0.058,
+        fin_pitch: float = 2.8e-3,
+        fin_thickness: float = 7.5e-4,
+        fin_outside_diameter: float = 57e-3,
+        fin_inside_diameter: float = 28e-3,
+    ):
+        # TODO add docstring with valid parameter ranges, units, and descriptions
+        self.d_ot = tube_out_diameter  # [m]                #done                outside tube diameter
+        self.d_i = tube_in_diameter # [m]                  #done                   tube inside diameter
+        self.length = tube_length  # [m]                    #done                length of tube
+        self.L_t = self.length / constants.n_segments     #done              [m]  length of tube / number of segments = length of segment
+        self.tp = tube_transverse_pitch   # [m]                #done                  transversal tube pitch
+        self.p_f = fin_pitch  # [m]                #done                 fin pitch (distance between fins)
+        self.t_f = fin_thickness   # [m]              #done                fin root thickness
+
         self.n_f = np.floor(
             self.L_t / (self.t_f + self.p_f)
         )                  #         number of fins (per segment)
-        self.d_f = 57e-3  #  [m]                #done                   fin outside diameter
-        self.d_r = 28e-3 # [m]                  #done                   fin inside diameter
-        self.d_i = 20e-3 # [m]                  #done                   tube inside diameter
+        self.d_f = fin_outside_diameter  #  [m]                #done                   fin outside diameter
+        self.d_r = fin_inside_diameter # [m]                  #done                   fin inside diameter
  
     def calculate_cross_section_air(self):
         cross_section_tube_s = (self.tp-self.d_ot)*self.L_t-(self.d_f-self.d_ot)*self.t_f*self.n_f
@@ -44,7 +58,6 @@ def calculate_pr_air(t, p):
 
 
 def calculate_re_air(t, p, m, cross_section_air, tube: Tube):
-    rho = PropsSI("D", "T", t, "P", p, "AIR")  # density
     mu = PropsSI("V", "T", t, "P", p, "AIR")  # viscosity
     wetted_perimeter = (
         2 * tube.L_t
@@ -214,7 +227,7 @@ if __name__  == "__main__":
     )
     print('m_air = ', round(m_a,2), 'ref: 1107')
 
-    m_a = m_a /190 /49  # for htc_air we are looking at air flow across one tube
+    m_a = m_a /47.5 /49  # for htc_air we are looking at air flow across one tube
 
     htc_s = calculate_htc_s(constants.t_co2_inlet, constants.p_co2_inlet, m_s, tube)
     print('htc_s', round(htc_s,2), 'ref: ca 750 (fig11)')

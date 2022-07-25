@@ -1,6 +1,6 @@
 from argparse import ArgumentParser
 from time import time
-from solair.simulation import Simulator
+from solair.simulation import Simulator, Simulator_Ehasan
 from solair.constants import constants
 from solair.design import Tube
 
@@ -12,10 +12,12 @@ parser.add_argument("-d", "--max_depth", type=int, default=100)
 
 def main(args):
     start = time()
-    sim = Simulator(
+    sim = Simulator_Ehasan(
         Tube(),
         verbose=args.verbose,
-        n_segments=args.n_segments,
+        n_segments=30,
+        n_rows=4,
+        n_sub_shx=1,
         max_iterations=args.max_depth,
         fast=False,
     )

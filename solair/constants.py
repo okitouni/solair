@@ -4,6 +4,7 @@ import warnings
 from CoolProp.CoolProp import PropsSI
 from pathlib import Path
 
+
 def get_m_air(
     p_co2_inlet: float,
     p_co2_outlet: float,
@@ -41,20 +42,22 @@ def get_m_air(
     return m_air
 
 
-def get_m_air_segment(m_air: float, n_segments: int, n_tubes_in_row: int) -> float:
+def get_m_air_segment(
+    m_air: float, n_segments: int, n_tubes_in_cross_section: int
+) -> float:
     """Compute the mass flow rate of air for a segment.
 
     Args:
         m_air (float): Mass flow rate of air for the entire cooler.
         n_segments (int): Number of segments along the tube.
-        n_tubes_in_row (int): Number of tubes in a row.
+        n_tubes_in_cross_section (int): Number of tubes facing the air inlet (surface perpendicular to Air inlet).
 
     Returns:
         float: The mass flow rate of air for a segment.
     """
     # TODO is m_air for segment corrent?
     m_air_segment = (
-        m_air / n_segments / n_tubes_in_row
+        m_air / n_segments / n_tubes_in_cross_section
     )  # divided by number of tubes in a row as we are considering a single tube for all calculations
     return m_air_segment
 
@@ -91,12 +94,12 @@ def get_enthalpy(p: float, t: float, fluid: str = "CO2", fast=False) -> float:
         if t > 345.98 + 50 or t < 306.15:  # TODO make this a constant
             warnings.warn(
                 f"Temperature outside of range of enthalpy table. Acceptable range is 306.15 to 345.98 K.",
-                stacklevel=2
+                stacklevel=2,
             )
         if p > 8e6 or p < 7.48e6:
             warnings.warn(
                 f"Pressure outside of range of enthalpy table. Acceptable range is 7.48e6 to 8e6 Pa.",
-                stacklevel=2
+                stacklevel=2,
             )
         # h = get_enthalpy_pickle(p, t)
         if len(h) == 1:
@@ -109,12 +112,14 @@ def get_enthalpy(p: float, t: float, fluid: str = "CO2", fast=False) -> float:
 @dataclass
 class constants:
     # solver tolerance
-    tolerance: float = 0.01  # tolerance in heat error to use in temperature search
+    tolerance: float = 0.0001  # tolerance in heat error to use in temperature search
     # design constants
     n_segments: int = 30  # done
     n_tubes_in_row: int = 47.5  # done
     n_rows: int = 4  # done
-    n_tubes_tot: int = n_tubes_in_row * n_rows  # done 190
+    n_bundles: int = 49  # done
+    n_tubes_in_cross_section: int = n_tubes_in_row * n_bundles  # TODO this is different for different designs
+    n_tubes_tot: int = n_tubes_in_row * n_rows * n_bundles  # done
 
     # thermodynamic constants
     t_co2_inlet: float = 71 + 273.15  # done
@@ -138,6 +143,8 @@ class constants:
         m_co2,
         cp_air,
     )
-    m_air_segment: float = get_m_air_segment(m_air, n_segments, n_tubes_in_row)
-    m_co2_segment: float = m_co2 / (n_tubes_in_row * n_rows)
+    m_air_segment: float = get_m_air_segment(
+        m_air, n_segments, n_tubes_in_cross_section=n_tubes_in_cross_section
+    )
+    m_co2_segment: float = m_co2 / (n_tubes_tot)
 
