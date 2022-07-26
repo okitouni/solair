@@ -15,8 +15,10 @@ def temp_scaling(temp_in: float, init_frac=0.05) -> float:
     init_frac is the fractional change in temp_in close to CO2 inlet temp.
     Returns max and min temperatures that can be used in the binary search.
     """
-    min_factor = (1.0 - init_frac) ** (1 + (temp_in - constants.t_co2_outlet) ** 0.6)
-    max_factor = (1.0 + init_frac) ** (1 + (temp_in - constants.t_co2_outlet) ** 0.6)
+    diff = temp_in - constants.t_co2_outlet
+    diff = max(diff, 0)
+    min_factor = (1.0 - init_frac) ** (1 + (diff) ** 0.6)
+    max_factor = (1.0 + init_frac) ** (1 + (diff) ** 0.6)
 
     min_temp = min(temp_in * min_factor, constants.t_co2_outlet)
     max_temp = temp_in * max_factor
@@ -142,9 +144,6 @@ class Simulator:
             tube_t_co2.reverse()
             tube_t_air.reverse()
             tube_p_co2.reverse()
-        # else: # this is a HACK to make downstream inlet temp equal to upstream
-        #     tube_t_air = [t_co2_init] + tube_t_air[:-1]
-        #     tube_p_co2 = [p_co2_init] + tube_p_co2[:-1]
 
         return tube_t_air, tube_t_co2, tube_p_co2
 
@@ -576,3 +575,31 @@ class Simulator:
             print(f"Average air outlet temp: {np.mean(self.results['t_air'][-1]):.2f}")
             print(f"CO2 inlet temp: {self.results['t_co2'][-1][0]:.2f}")
 
+
+class Simulator_Ehasan(Simulator):
+    def _start_shx(self, n_rows: int = None) -> Dict[str, List]:
+
+        n_rows = n_rows or self.n_rows
+        p_co2_init = constants.p_co2_inlet
+        t_co2_init = constants.t_co2_inlet
+        t_air_init = constants.t_air_inlet
+        if self._verbose > 0:
+            print("Initial conditions:")
+            print("t_co2_in:", t_co2_init, "t_air_in:", t_air_init)
+        for _ in range(n_rows):
+            # Start the solver from the CO2 outlet and air inlet and go upstream of the CO2 flow.
+            tube_t_air, tube_t_co2, tube_p_co2 = self._solve_tube(
+                    p_co2_init=p_co2_init,
+                    t_co2_init=t_co2_init,
+                    t_air_init=t_air_init,
+                    upstream=False,
+                )
+            p_co2_init = tube_p_co2[0]
+            t_co2_init = tube_t_co2[0]
+            t_air_init = tube_t_air
+            # At each row, save the temperature and pressure of the air and CO2 in the tube.
+            self.results["t_co2"].append(tube_t_co2)
+            self.results["t_air"].append(tube_t_air)
+            self.results["p_co2"].append(tube_p_co2)
+
+        return self.results
