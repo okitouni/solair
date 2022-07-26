@@ -148,3 +148,16 @@ class constants:
     )
     m_co2_segment: float = m_co2 / (n_tubes_tot)
 
+     # parameters for cost calculation
+    cost_alu: float = 4.2   # [$/kg] material cost aluminium
+    cost_steel: float = 0.8 # [$/kg] material cost steel (ASTM A214)
+    rho_alu: float = 2750   # [kg/m^3] density aluminium
+    rho_steel: float = 7950 # [kg/m^3] density steel (ASTM A214)
+
+    fixed_cost_tube: float = 2 # [$/m] fixed cost of the tube per unit length (Kroger vol 2)
+    weighting_factor: float = 2 # [$/m] weighting factor (kroger vol 2)
+
+    f_header = 0.8     # weighting factor for heat exchanger header cost
+    f_labor = 0.7      # weighting factor for heat exchanger labor cost
+    f_HX = 1.2         # ?
+

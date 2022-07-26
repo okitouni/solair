@@ -1,4 +1,4 @@
-from .constants import constants, get_m_air
+from constants import constants, get_m_air
 from CoolProp.CoolProp import PropsSI
 import numpy as np
 from typing import Iterable
