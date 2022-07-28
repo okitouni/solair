@@ -21,6 +21,8 @@ class Csp:
                 1.1, # tube_out_diameter = fraction of tube_in_diameter
                 1.1,  # fin_in_diameter = fraction of tube_out_diameter
                 1.1,  # fin_out_diameter = fraction of fin_in_diameter
+                1e-3, # fin_pitch
+                0.1, # fin_thickness = fraction of fin_pitch
             ]
         )
         self.ub = np.array(
@@ -29,6 +31,8 @@ class Csp:
                 2, # tube_out_diameter  - tube_in_diameter
                 2, # fin_in_diameter = fraction of tube_out_diameter
                 2, # fin_out_diameter = fraction of fin_in_diameter
+                4e-3, # fin_pitch
+                .8, # fin_thickness = fraction of fin_pitch
             ]
         )
 
@@ -40,12 +44,16 @@ class Csp:
         tube_out_diameter = tube_in_diameter * x[1]
         fin_in_diameter = tube_out_diameter  * x[2]
         fin_out_diameter = fin_in_diameter * x[3]
+        fin_pitch = x[4]
+        fin_thickness = x[5] * fin_pitch
 
         tube = Tube(
             tube_in_diameter=tube_in_diameter,
             tube_out_diameter=tube_out_diameter,
             fin_in_diameter=fin_in_diameter,
             fin_out_diameter=fin_out_diameter,
+            fin_pitch=fin_pitch,
+            fin_thickness=fin_thickness,
         )
         sim = DynamicLength(tube, verbose=0, n_rows=4, n_sub_shx=1, fast=False,)
         sim.run()
@@ -63,8 +71,11 @@ class Csp:
 
 
 if __name__ == "__main__":
-    f = Csp()
+    from datetime import datetime
+    import os
+    from pathlib import Path
 
+    f = Csp()
     turbo1 = Turbo1(
         f=f,  # Handle to objective function
         lb=f.lb,  # Numpy array specifying lower bounds
@@ -82,4 +93,7 @@ if __name__ == "__main__":
     )
 
     turbo1.optimize()
+    time_stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    save_path = Path(os.getcwd()) / "results" / time_stamp
+    os.mkdir(save_path, exist_ok=True)
     np.savez("fit_results.npz", X=turbo1.X, fX=turbo1.fX)

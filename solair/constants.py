@@ -120,6 +120,8 @@ class constants:
     n_bundles: int = 49  # done
     n_tubes_in_cross_section: int = n_tubes_in_row * n_bundles  # TODO this is different for different designs
     n_tubes_tot: int = n_tubes_in_row * n_rows * n_bundles  # done
+    n_sub_heat_exchangers: int = 3 # TODO not used in the simulator currently
+
 
     # thermodynamic constants
     t_co2_inlet: float = 71 + 273.15  # done

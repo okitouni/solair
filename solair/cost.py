@@ -45,7 +45,7 @@ def calculate_total_cost_finned_tubes(rho_tube, c_tm, rho_fin, c_fm, tube: Tube)
     cost_tube = calculate_tube_cost_per_length(rho_tube, c_tm, tube)
     cost_fin = calculate_fin_cost_per_length(rho_fin, c_fm, tube)
 
-    total_cost_finned_tubes = ( constants.weighting_factor * (cost_tube + cost_fin) + constants.fixed_cost_tube ) * ( tube.segment_length * tube.n_segments ) * constants.n_tubes_in_row * constants.n_rows * 3 # TODO: implement number heat exchangers
+    total_cost_finned_tubes = ( constants.weighting_factor * (cost_tube + cost_fin) + constants.fixed_cost_tube ) * ( tube.segment_length * tube.n_segments ) * constants.n_tubes_in_row * constants.n_rows * constants.n_sub_heat_exchangers # TODO: implement number heat exchangers
     return total_cost_finned_tubes
 
 

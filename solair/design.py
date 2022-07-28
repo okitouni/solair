@@ -13,10 +13,10 @@ class Tube:
             tube_in_diameter (float): Tube inside diameter [m]
             tube_length (float): Length of tube [m]
             tube_transverse_pitch (float): Transversal tube pitch (distance between the center of two tubes in the vertical direction) [m]
-            fin_pitch (float): Fin pitch (distance between fins) [m] [0.0013,0.00406]
-            fin_thickness (float): Fin root thickness [m]  [3.3e-4,2.02e-3]
             fin_out_diameter (float): Fin outside diameter [m]
             fin_in_diameter (float): Fin inside diameter [m]  [0.01113,0.04089]
+            fin_pitch (float): Fin pitch (distance between fins) [m] [0.0013,0.00406]
+            fin_thickness (float): Fin root thickness [m]  [3.3e-4,2.02e-3]
             
             Addional information on bounds:
             - Bound on half fin diameter (d_f-d_r)/2 [m] [0.00142,0.01657]
@@ -29,10 +29,10 @@ class Tube:
         tube_segment_length: float = 0.2,
         n_segments: int = constants.n_segments,
         tube_transverse_pitch=58e-3,
-        fin_pitch: float = 2.8e-3,
-        fin_thickness: float = 7.5e-4,
         fin_out_diameter: float = 57e-3,
         fin_in_diameter: float = 28e-3,
+        fin_pitch: float = 2.8e-3,
+        fin_thickness: float = 7.5e-4,
     ):
         
         self.d_ot = tube_out_diameter 
