@@ -1,6 +1,6 @@
 from argparse import ArgumentParser
 from time import time
-from solair.simulation import Simulator, Simulator_Ehasan
+from solair.simulation import Simulator, Simulator_Ehasan, DynamicLength
 from solair.constants import constants
 from solair.design import Tube
 
@@ -12,7 +12,7 @@ parser.add_argument("-d", "--max_depth", type=int, default=100)
 
 def main(args):
     start = time()
-    sim = Simulator_Ehasan(
+    sim = DynamicLength(
         Tube(),
         verbose=args.verbose,
         n_segments=30,
@@ -22,6 +22,7 @@ def main(args):
         fast=False,
     )
     sim.run()
+    print("n_segments:", sim.n_segments)
     end = time()
     print("Time: {:.2f} seconds".format(end - start))
 

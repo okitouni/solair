@@ -1,5 +1,5 @@
-from design import Tube
-from constants import constants
+from .design import Tube
+from .constants import constants
 import numpy as np
 
 
@@ -45,7 +45,7 @@ def calculate_total_cost_finned_tubes(rho_tube, c_tm, rho_fin, c_fm, tube: Tube)
     cost_tube = calculate_tube_cost_per_length(rho_tube, c_tm, tube)
     cost_fin = calculate_fin_cost_per_length(rho_fin, c_fm, tube)
 
-    total_cost_finned_tubes = ( constants.weighting_factor * (cost_tube + cost_fin) + constants.fixed_cost_tube ) * ( tube.L_t * constants.n_segments ) * constants.n_tubes_in_row * constants.n_rows * 3 # TODO: implement number heat exchangers
+    total_cost_finned_tubes = ( constants.weighting_factor * (cost_tube + cost_fin) + constants.fixed_cost_tube ) * ( tube.segment_length * tube.n_segments ) * constants.n_tubes_in_row * constants.n_rows * 3 # TODO: implement number heat exchangers
     return total_cost_finned_tubes
 
 
@@ -62,8 +62,8 @@ def calculate_total_cost_air_cooler(rho_tube, c_tm, rho_fin, c_fm, tube: Tube):
         total_cost_finned_tube: total cost of finned tube
     """
     
-    cost_tube = calculate_tube_cost_per_length(rho_tube, c_tm, tube)
-    cost_fin = calculate_fin_cost_per_length(rho_fin, c_fm, tube)
+    # cost_tube = calculate_tube_cost_per_length(rho_tube, c_tm, tube)
+    # cost_fin = calculate_fin_cost_per_length(rho_fin, c_fm, tube)
     total_cost_finned_tubes = calculate_total_cost_finned_tubes(rho_tube, c_tm, rho_fin, c_fm, tube)
 
     total_cost_air_cooler =  total_cost_finned_tubes * ( 1 + constants.f_header ) * (1 + constants.f_labor ) * constants.f_HX 

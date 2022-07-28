@@ -1,4 +1,4 @@
-from constants import constants, get_m_air
+from .constants import constants, get_m_air
 from CoolProp.CoolProp import PropsSI
 import numpy as np
 from typing import Iterable
@@ -15,8 +15,8 @@ class Tube:
             tube_transverse_pitch (float): Transversal tube pitch (distance between the center of two tubes in the vertical direction) [m]
             fin_pitch (float): Fin pitch (distance between fins) [m] [0.0013,0.00406]
             fin_thickness (float): Fin root thickness [m]  [3.3e-4,2.02e-3]
-            fin_outside_diameter (float): Fin outside diameter [m]
-            fin_inside_diameter (float): Fin inside diameter [m]  [0.01113,0.04089]
+            fin_out_diameter (float): Fin outside diameter [m]
+            fin_in_diameter (float): Fin inside diameter [m]  [0.01113,0.04089]
             
             Addional information on bounds:
             - Bound on half fin diameter (d_f-d_r)/2 [m] [0.00142,0.01657]
@@ -24,29 +24,31 @@ class Tube:
         """
     def __init__(
         self,
-        tube_out_diameter: float = 0.025,
+        tube_out_diameter: float = 25e-3,
         tube_in_diameter: float = 20e-3,
-        tube_length: float = 6,
-        tube_transverse_pitch=0.058,
+        tube_segment_length: float = 0.2,
+        n_segments: int = constants.n_segments,
+        tube_transverse_pitch=58e-3,
         fin_pitch: float = 2.8e-3,
         fin_thickness: float = 7.5e-4,
-        fin_outside_diameter: float = 57e-3,
-        fin_inside_diameter: float = 28e-3,
+        fin_out_diameter: float = 57e-3,
+        fin_in_diameter: float = 28e-3,
     ):
         
         self.d_ot = tube_out_diameter 
         self.d_i = tube_in_diameter 
-        self.length = tube_length  
-        self.L_t = self.length / constants.n_segments     # length of tube / number of segments = length of segment
+        self.length = tube_segment_length * n_segments
+        self.n_segments: int = n_segments
+        self.segment_length = tube_segment_length # length of tube / number of segments = length of segment
         self.tp = tube_transverse_pitch   
         self.p_f = fin_pitch  
         self.t_f = fin_thickness   
 
         self.n_f = np.floor(
-            self.L_t / (self.t_f + self.p_f)
+            self.segment_length / (self.t_f + self.p_f)
         )                  #         number of fins (per segment)
-        self.d_f = fin_outside_diameter  
-        self.d_r = fin_inside_diameter 
+        self.d_f = fin_out_diameter  
+        self.d_r = fin_in_diameter 
  
     def calculate_cross_section_air(self):
         """
@@ -56,7 +58,7 @@ class Tube:
         -------
         cross section of the tube segment
         """
-        cross_section_tube_s = (self.tp-self.d_ot)*self.L_t-(self.d_f-self.d_ot)*self.t_f*self.n_f
+        cross_section_tube_s = (self.tp-self.d_ot)*self.segment_length-(self.d_f-self.d_ot)*self.t_f*self.n_f
         return cross_section_tube_s
 
     def calculate_surface_area_air(self):
@@ -71,11 +73,11 @@ class Tube:
         A_1f = np.pi * ((self.d_f ** 2 - self.d_ot ** 2) / 2) # surface area of one fin
         A_f = self.n_f * A_1f   
         A_t = np.pi * self.d_ot * (
-            self.L_t - self.t_f * self.n_f) 
+            self.segment_length - self.t_f * self.n_f) 
         return [A_t,A_f]
 
     def calculate_surface_area_co2(self):
-        surface_area_co2 = np.pi*self.d_i*self.L_t          
+        surface_area_co2 = np.pi*self.d_i*self.segment_length          
         return surface_area_co2
 
 
@@ -92,7 +94,7 @@ def calculate_pr_air(t, p):
 def calculate_re_air(t, p, m, cross_section_air, tube: Tube):
     mu = PropsSI("V", "T", t, "P", p, "AIR")  # viscosity
     wetted_perimeter = (
-        2 * tube.L_t
+        2 * tube.segment_length
         + 2 * (tube.t_f - tube.d_ot)
         + (tube.d_f - tube.d_ot) * 2 * tube.n_f
     )
@@ -202,7 +204,7 @@ def calculate_htc_s(t, p, m,tube):
 
 ### T and P are different for air and CO2, OHTC can not be calculated with one pair of values
 ### 
-def compute_ohtc(t_air, t_s, p_air, p_s, m_air, m_s, tube):
+def compute_ohtc(t_air, t_s, p_air, p_s, m_air, m_s, tube: Tube):
     """ Computes overall heat transfer coefficient of the heat exchanger for one tube. 
     This is done by calculating HTC_air and HTC_sco2 and taken the inverse of their sum. 
     Thermal resistance of the tube wall r2 is neglected.
@@ -235,6 +237,8 @@ def compute_ohtc(t_air, t_s, p_air, p_s, m_air, m_s, tube):
     r_2 = 0  # negliged resistance of wall
     r_3 = 1 / (surface_area_co2 * htc_s)  # resistance of hot
     ohtc = 1 / (r_1 + r_2 + r_3)
+    if np.isnan(ohtc):
+        raise ValueError("ohtc is nan. Check design of the tube.")
     return ohtc
 
 

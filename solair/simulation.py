@@ -603,3 +603,123 @@ class Simulator_Ehasan(Simulator):
             self.results["p_co2"].append(tube_p_co2)
 
         return self.results
+
+class DynamicLength(Simulator):
+    def _solve_tube(
+        self,
+        p_co2_init: float,
+        t_co2_init: float,
+        t_air_init: Union[float, Iterable[float]] = None,
+        upstream: bool = False,
+        t_co2_final: float = 0,
+    ) -> Tuple[List[float], List[float], List[float]]:
+        """
+        Solve the temperature of an entire tube.
+
+        Args:
+            p_co2_init (float): 
+                Pressure of the initial CO2.
+            t_co2_init (float): 
+                Temperature of the initial CO2.
+            t_air_init (float, optional): 
+                Temperature of the initial air. This is always in the direction of air flow. If not given, 
+                the solver uses the last tube air temperatures.
+            upstream (bool, optional): 
+                True if solver is going upstream of CO2 flow, False if going downstream. Defaults to False.
+
+        Returns:
+            Tuple[List[float], List[float], List[float]]: List of temperatures of air, CO2, and CO2 pressure for each segment.
+        """
+        if t_co2_final:
+            assert t_co2_final < t_co2_init
+
+
+        tube_t_air = []
+        tube_t_co2 = [t_co2_init]
+        tube_p_co2 = [p_co2_init]
+
+        t_co2_out = t_co2_init
+        p_co2_out = p_co2_init
+
+        if t_air_init is None:
+            t_air_in_list = self.results["t_air"][-1]
+        elif isinstance(t_air_init, Iterable):
+            t_air_in_list = t_air_init
+            if len(t_air_in_list) != self.n_segments:
+                raise ValueError(
+                    "Length of t_air_init must be equal to n_segments. Got {} instead.".format(
+                        len(t_air_in_list)
+                    )
+                )
+        else:
+            t_air_in_list = [t_air_init] * self.n_segments
+
+        if upstream:
+            # going upstream so reverse the list which is going downstream
+            t_air_in_list.reverse()
+        
+        segment_num = -1
+        while t_co2_out > t_co2_final:
+            if t_co2_final == 0 and segment_num == self.n_segments - 1:
+                break
+            segment_num += 1
+            if t_co2_final == 0:
+                t_air_in = t_air_in_list[segment_num] 
+            else:
+                t_air_in = t_air_init
+            min_temp, max_temp = temp_scaling(t_co2_out)
+            t_air_out, t_co2_out, p_co2_out = self._solve_segment(
+                p_co2_in=p_co2_out,
+                t_co2_in=t_co2_out,
+                t_air_in=t_air_in,
+                upstream=upstream,
+                max_temp=max_temp,
+                min_temp=min_temp,
+            )
+            if self._verbose > 1:
+                print(
+                    f"Finished segment {segment_num+1}",
+                    f"t_co2_out: {t_co2_out}, t_air_out: {t_air_out}",
+                )
+
+            tube_t_co2.append(t_co2_out)
+            tube_t_air.append(t_air_out)
+            tube_p_co2.append(p_co2_out)
+        self.n_segments = segment_num + 1
+        if upstream:
+            # arrays are stored in the same direction as the flow
+            tube_t_co2.reverse()
+            tube_t_air.reverse()
+            tube_p_co2.reverse()
+
+        return tube_t_air, tube_t_co2, tube_p_co2
+    def _start_shx(self, n_rows: int = None, t_co2_final: float = constants.t_co2_outlet) -> Dict[str, List]:
+
+        n_rows = n_rows or self.n_rows
+        p_co2_init = constants.p_co2_inlet
+        t_co2_init = constants.t_co2_inlet
+        t_air_init = constants.t_air_inlet
+        if self._verbose > 0:
+            print("Initial conditions:")
+            print("t_co2_in:", t_co2_init, "t_air_in:", t_air_init)
+            if t_co2_final is not None:
+                print("Goal t_co2_final:", t_co2_final)
+        for _ in range(n_rows):
+            # Start the solver from the CO2 outlet and air inlet and go upstream of the CO2 flow.
+            tube_t_air, tube_t_co2, tube_p_co2 = self._solve_tube(
+                    p_co2_init=p_co2_init,
+                    t_co2_init=t_co2_init,
+                    t_air_init=t_air_init,
+                    upstream=False,
+                    t_co2_final=t_co2_final,
+                )
+            p_co2_init = tube_p_co2[0]
+            t_co2_init = tube_t_co2[0]
+            t_air_init = tube_t_air
+            # At each row, save the temperature and pressure of the air and CO2 in the tube.
+            self.results["t_co2"].append(tube_t_co2)
+            self.results["t_air"].append(tube_t_air)
+            self.results["p_co2"].append(tube_p_co2)
+            t_co2_final = 0
+
+        return self.results
