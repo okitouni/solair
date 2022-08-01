@@ -13,7 +13,7 @@ def calculate_tube_cost_per_length(rho_tube, c_tm, tube: Tube):
         cost_tube: cost of tube per unit length
     """
 
-    cost_tube = np.pi * rho_tube * (tube.d_ot**2 - tube.d_i**2) * c_tm / 4
+    cost_tube = np.pi * rho_tube * (tube.tube_out_diameter**2 - tube.tube_in_diameter**2) * c_tm / 4
     return cost_tube
 
 def calculate_fin_cost_per_length(rho_fin, c_fm, tube: Tube):
@@ -26,7 +26,7 @@ def calculate_fin_cost_per_length(rho_fin, c_fm, tube: Tube):
         cost_fin: cost of fins per unit tube length
     """
 
-    cost_fin = np.pi * rho_fin / (4 * tube.p_f )  * ((tube.d_f**2 - tube.d_r**2) * tube.t_f + (tube.d_r**2 - tube.d_ot**2)*(tube.p_f - tube.t_f) ) * c_fm
+    cost_fin = np.pi * rho_fin / (4 * tube.fin_pitch )  * ((tube.fin_out_diameter**2 - tube.fin_in_diameter**2) * tube.fin_thickness + (tube.fin_in_diameter**2 - tube.tube_out_diameter**2)*(tube.fin_pitch - tube.fin_thickness) ) * c_fm
     return cost_fin
 
 

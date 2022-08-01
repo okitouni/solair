@@ -35,30 +35,34 @@ class Tube:
         fin_thickness: float = 7.5e-4,
     ):
         
-        self.d_ot = tube_out_diameter 
-        self.d_i = tube_in_diameter 
+        self.tube_out_diameter = tube_out_diameter 
+        self.tube_in_diameter = tube_in_diameter 
         self.length = tube_segment_length * n_segments
         self.n_segments: int = n_segments
         self.segment_length = tube_segment_length # length of tube / number of segments = length of segment
-        self.tp = tube_transverse_pitch   
-        self.p_f = fin_pitch  
-        self.t_f = fin_thickness   
+        self.tube_transverse_pitch = tube_transverse_pitch   
+        self.fin_pitch = fin_pitch  
+        self.fin_thickness = fin_thickness   
 
         self.n_f = np.floor(
-            self.segment_length / (self.t_f + self.p_f)
+            self.segment_length / (self.fin_thickness + self.fin_pitch)
         )                  #         number of fins (per segment)
-        self.d_f = fin_out_diameter  
-        self.d_r = fin_in_diameter 
+        self.fin_out_diameter = fin_out_diameter  
+        self.fin_in_diameter = fin_in_diameter 
  
     def calculate_cross_section_air(self):
         """
-        Calculates cross section of air as in equation 5 of ref2
+        Calculates cross section of air as in equation 5 of ref2 (TODO check this)
         
         Returns
         -------
         cross section of the tube segment
         """
-        cross_section_tube_s = (self.tp-self.d_ot)*self.segment_length-(self.d_f-self.d_ot)*self.t_f*self.n_f
+        # TODO replace tube_out_diameter with fin_in_diameter ?
+        # cross_section_tube_s = (self.tube_transverse_pitch-self.tube_out_diameter)*self.segment_length-(self.fin_out_diameter-self.tube_out_diameter)*self.fin_thickness*self.n_f
+        # Now this calculates the area between tubes where air can flow
+        cross_section_tube_s = (self.tube_transverse_pitch-self.fin_in_diameter)*self.segment_length-(self.fin_out_diameter-self.fin_in_diameter)*self.fin_thickness*self.n_f * 2
+        assert cross_section_tube_s > 0, "Cross section of tube segment is negative"
         return cross_section_tube_s
 
     def calculate_surface_area_air(self):
@@ -70,14 +74,14 @@ class Tube:
         A_t : outside tube area between fins for entire tube
         A_f : surface area of all fins along one tube
         """# surface area of entire tube
-        A_1f = np.pi * ((self.d_f ** 2 - self.d_ot ** 2) / 2) # surface area of one fin
+        A_1f = np.pi * ((self.fin_out_diameter ** 2 - self.tube_out_diameter ** 2) / 2) # surface area of one fin
         A_f = self.n_f * A_1f   
-        A_t = np.pi * self.d_ot * (
-            self.segment_length - self.t_f * self.n_f) 
+        A_t = np.pi * self.tube_out_diameter * (
+            self.segment_length - self.fin_thickness * self.n_f) 
         return [A_t,A_f]
 
     def calculate_surface_area_co2(self):
-        surface_area_co2 = np.pi*self.d_i*self.segment_length          
+        surface_area_co2 = np.pi*self.tube_in_diameter*self.segment_length          
         return surface_area_co2
 
 
@@ -93,10 +97,11 @@ def calculate_pr_air(t, p):
 
 def calculate_re_air(t, p, m, cross_section_air, tube: Tube):
     mu = PropsSI("V", "T", t, "P", p, "AIR")  # viscosity
+    # Perimeter around the area the air can flow through
     wetted_perimeter = (
         2 * tube.segment_length
-        + 2 * (tube.t_f - tube.d_ot)
-        + (tube.d_f - tube.d_ot) * 2 * tube.n_f
+        + 2 * (tube.tube_transverse_pitch - tube.fin_in_diameter)
+        + (tube.fin_out_diameter - tube.fin_in_diameter) * 2 * 2 * tube.n_f # two sides per fin and two for fin on either side.
     )
     d_f = (
         4 * cross_section_air / wetted_perimeter
@@ -163,12 +168,12 @@ def calculate_htc_a(t, p, m, tube: Tube):
     pr_a = calculate_pr_air(t, p)
     re_a = calculate_re_air(t, p, m, cross_section_air, tube)
     k_a = 0.025  # W/(mK) thermal conductivity of air #TODO this varies over temperature and pressure
-    htc_a = k_a/ tube.d_ot*(
+    htc_a = k_a/ tube.tube_out_diameter*(
         0.134
         * pr_a ** (1 / 3)
         * re_a ** 0.681
-        * (2 * (tube.p_f - tube.t_f) / (tube.d_f - tube.d_r))**0.2
-        * ((tube.p_f - tube.t_f) / tube.t_f) ** 0.1134
+        * (2 * (tube.fin_pitch - tube.fin_thickness) / (tube.fin_out_diameter - tube.fin_in_diameter))**0.2
+        * ((tube.fin_pitch - tube.fin_thickness) / tube.fin_thickness) ** 0.1134
     )
     return htc_a
 
@@ -228,9 +233,9 @@ def compute_ohtc(t_air, t_s, p_air, p_s, m_air, m_s, tube: Tube):
     
     #calculation of the fin efficiency
     k_f = 204 #[W*m*K]       #done (adjust to Ehsan)  thermal conductivity fin 
-    m_efficiency = np.sqrt(2*htc_a/(k_f*tube.t_f))
-    O_efficiency = (tube.d_f/tube.d_ot -1)*(1+0.35*np.log(tube.d_f/tube.d_ot))
-    efficiency_fin = np.tanh(m_efficiency*O_efficiency*(tube.d_ot/2))/(m_efficiency*O_efficiency*(tube.d_ot/2))
+    m_efficiency = np.sqrt(2*htc_a/(k_f*tube.fin_thickness))
+    O_efficiency = (tube.fin_out_diameter/tube.tube_out_diameter -1)*(1+0.35*np.log(tube.fin_out_diameter/tube.tube_out_diameter))
+    efficiency_fin = np.tanh(m_efficiency*O_efficiency*(tube.tube_out_diameter/2))/(m_efficiency*O_efficiency*(tube.tube_out_diameter/2))
     surface_area_air = A_t + efficiency_fin*A_f
 
     r_1 = 1 / (surface_area_air * htc_a)  # resistance of cold
