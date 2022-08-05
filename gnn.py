@@ -10,8 +10,9 @@ from src.dataset.dataset_processing import CFD_dataset
 from src.models.models import GCN
 import torch.nn as nn
 from tqdm import trange
+import wandb
 
-
+wandb.init(project="gnn", entity="imdea_dolo")
 
 ######### create dataset
 dataset = CFD_dataset('./data/')
@@ -51,6 +52,7 @@ for epoch in range(EPOCHS):
         optimizer.zero_grad()
         out = model(data)
         loss = loss_mse(out, data.y)
+        wandb.log({"loss": loss_val})
         losses_train.append(loss.item())
         loss.backward()
         optimizer.step()
@@ -62,9 +64,10 @@ for epoch in range(EPOCHS):
                     data = data.to(device)
                     out = model(data)
                     loss_val = loss_mse(out, data.y)
+                    wandb.log({"loss_val": loss_val})
                     losses_val.append(loss_val.item())
             model.train()
-
+    
         pbar.update(1)
         pbar.set_description(f'Epoch {epoch + 1:03d}| Loss train: {loss.item():.4f}, Loss val: {loss_val.item():.4f}')
 
