@@ -1,3 +1,4 @@
+# %%
 from turbo import Turbo1, TurboM
 import numpy as np
 import matplotlib
@@ -7,6 +8,8 @@ from solair.design import Tube
 from solair.cost import calculate_total_cost_air_cooler
 from solair.constants import constants
 import torch
+from IPython import embed
+import time
 
 torch.manual_seed(0)
 torch.cuda.manual_seed_all(0)
@@ -22,6 +25,7 @@ class Csp:
                 1.1,  # tube_out_diameter = multiple of tube_in_diameter
                 1.1,  # fin_in_diameter = multiple of tube_out_diameter
                 1.1,  # fin_out_diameter = multiple of fin_in_diameter
+                1.1,  # tube transverse pitch = multiple of fin_out_diameter
                 1e-3,  # fin_pitch
                 0.1,  # fin_thickness = fraction of fin_pitch
             ]
@@ -32,6 +36,7 @@ class Csp:
                 2,  # tube_out_diameter = multiple of tube_in_diameter
                 2,  # fin_in_diameter = multiple of tube_out_diameter
                 2,  # fin_out_diameter = multiple of fin_in_diameter
+                2,  # tube transverse pitch = multiple of fin_out_diameter
                 4e-3,  # fin_pitch
                 0.8,  # fin_thickness = fraction of fin_pitch
             ]
@@ -45,10 +50,12 @@ class Csp:
         tube_out_diameter = tube_in_diameter * x[1]
         fin_in_diameter = tube_out_diameter * x[2]
         fin_out_diameter = fin_in_diameter * x[3]
-        fin_pitch = x[4]
-        fin_thickness = x[5] * fin_pitch
+        tube_transverse_pitch = fin_out_diameter * x[4]
+        fin_pitch = x[5]
+        fin_thickness = x[6] * fin_pitch
         lifetime_years = 25
         LCOE_fanpower_cents = 0.05
+
         tube = Tube(
             tube_in_diameter=tube_in_diameter,
             tube_out_diameter=tube_out_diameter,
@@ -56,6 +63,7 @@ class Csp:
             fin_out_diameter=fin_out_diameter,
             fin_pitch=fin_pitch,
             fin_thickness=fin_thickness,
+            tube_transverse_pitch=tube_transverse_pitch,
         )
         sim = DynamicLength(tube, verbose=0, n_rows=4, n_sub_shx=1, fast=False,)
         sim.run()
@@ -82,6 +90,7 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--output", type=str, default="output")
     parser.add_argument("-m", "--turbo_m", action="store_true")
     args = parser.parse_args()
+    time_start = time.time()
 
     f = Csp()
     Turbo = TurboM if args.turbo_m else Turbo1
@@ -105,4 +114,18 @@ if __name__ == "__main__":
     turbo1 = Turbo(**kwargs)
 
     turbo1.optimize()
+    best_index = turbo1.fX.argmin()
+    print("Done")
+    print("Best Parameters:", turbo1.X[best_index])
+    print("Best Cost:", turbo1.fX[best_index])
+    with open(args.output + ".log", "w") as f:
+        date = time.strftime("%Y-%m-%d %H:%M:%S")
+        f.write(f"{date}\n")
+        f.write("Args: " + str(args) + "\n")
+        time_final = time.time()
+        f.write(str(turbo1.X[best_index]) + "\n")
+        f.write(str(turbo1.fX[best_index]) + "\n")
+        f.write("Total time: " + str(time_final - time_start))
     np.savez(f"{args.output}.npz", X=turbo1.X, fX=turbo1.fX)
+
+# %%

@@ -36,22 +36,22 @@ class Tube:
         fin_thickness: float = 7.5e-4,
     ):
         
-        self.d_ot = tube_out_diameter 
-        self.d_i = tube_in_diameter 
+        self.tube_out_diameter = tube_out_diameter 
+        self.tube_in_diameter = tube_in_diameter 
         self.length = tube_segment_length * n_segments
         self.n_segments: int = n_segments
         self.segment_length = tube_segment_length # length of tube / number of segments = length of segment
-        self.tp = tube_transverse_pitch   
-        self.lp = tube_longitudinal_pitch
-        self.dp = np.sqrt(tube_longitudinal_pitch **2 + (tube_transverse_pitch/2) **2) # tube diagonal pitch
-        self.p_f = fin_pitch  
-        self.t_f = fin_thickness   
+        self.tube_transverse_pitch = tube_transverse_pitch   # distance between the center of two tubes perpendicular to the air flow direction
+        self.tube_longitudinal_pitch = tube_longitudinal_pitch # distance between the center of two tubes parallel to the air flow direction
+        self.tube_diagonal_pitch = np.sqrt(tube_longitudinal_pitch **2 + (tube_transverse_pitch/2) **2) # tube diagonal pitch
+        self.fin_pitch = fin_pitch  
+        self.fin_thickness = fin_thickness   
 
         self.n_f = np.floor(
-            self.segment_length / (self.t_f + self.p_f)
+            self.segment_length / (self.fin_thickness + self.fin_pitch)
         )                  #         number of fins (per segment)
-        self.d_f = fin_out_diameter  
-        self.d_r = fin_in_diameter 
+        self.fin_out_diameter = fin_out_diameter  
+        self.fin_in_diameter = fin_in_diameter 
  
     def calculate_cross_section_air(self):
         """
@@ -61,14 +61,11 @@ class Tube:
         -------
         cross section of the tube segment
         """
-        cross_section_tube_s1 = (self.tp-self.d_ot   )*self.segment_length 
-        cross_section_tube_s2 =  (self.d_f-self.d_r)*self.t_f*self.n_f #* self.segment_length
-        cross_section_tube_s = cross_section_tube_s1 - cross_section_tube_s2
-
-        #print('cross section tube + part', cross_section_tube_s1)
-        #print('cross section tube - part', cross_section_tube_s2)
-        #print('cross section tube ', cross_section_tube_s)
-
+        # TODO replace tube_out_diameter with fin_in_diameter ?
+        # cross_section_tube_s = (self.tube_transverse_pitch-self.tube_out_diameter)*self.segment_length-(self.fin_out_diameter-self.tube_out_diameter)*self.fin_thickness*self.n_f
+        # Now this calculates the area between tubes where air can flow
+        cross_section_tube_s = (self.tube_transverse_pitch-self.fin_in_diameter)*self.segment_length-(self.fin_out_diameter-self.fin_in_diameter)*self.fin_thickness*self.n_f * 2
+        assert cross_section_tube_s > 0, "Cross section of tube segment is negative"
         return cross_section_tube_s
 
         # Heat exchanger dimensions pdf page 75: looks slightly different, not sure this is correct though
@@ -86,14 +83,14 @@ class Tube:
         A_t : outside tube area between fins for entire tube
         A_f : surface area of all fins along one tube
         """# surface area of entire tube
-        A_1f = np.pi * ((self.d_f ** 2 - self.d_ot ** 2) / 2) # surface area of one fin   #### no d_ot for Ehsan airside surface area
+        A_1f = np.pi * ((self.fin_out_diameter ** 2 - self.tube_out_diameter ** 2) / 2) # surface area of one fin
         A_f = self.n_f * A_1f   
-        A_t = np.pi * self.d_ot * (
-            self.segment_length - self.t_f * self.n_f) 
+        A_t = np.pi * self.tube_out_diameter * (
+            self.segment_length - self.fin_thickness * self.n_f) 
         return [A_t,A_f]
 
     def calculate_surface_area_co2(self):
-        surface_area_co2 = np.pi*self.d_i*self.segment_length          
+        surface_area_co2 = np.pi*self.tube_in_diameter*self.segment_length          
         return surface_area_co2
 
 
@@ -109,18 +106,16 @@ def calculate_pr_air(t, p):
 
 def calculate_re_air(t, p, m, cross_section_air, tube: Tube):
     mu = PropsSI("V", "T", t, "P", p, "AIR")  # viscosity
+    # Perimeter around the area the air can flow through
     wetted_perimeter = (
         2 * tube.segment_length
-        + 2 * (tube.tp - tube.d_r)
-        + (tube.d_f - tube.d_r) * 2 * tube.n_f   # + tube.t_f_out * n_f         for Ehsan airside area
+        + 2 * (tube.tube_transverse_pitch - tube.fin_in_diameter)
+        + (tube.fin_out_diameter - tube.fin_in_diameter) * 2 * 2 * tube.n_f # two sides per fin and two for fin on either side.
     )
     d_f = (
         4 * cross_section_air / wetted_perimeter
     )  #  hydraulic diameter defined in page 582 pdf Fundamentals of...
     a_ff = cross_section_air
-    rho_air = PropsSI("D", "T", t, "P", p, "CO2")
-    w = constants.m_air_segment / a_ff / rho_air
-    #print('flow speed air', w)
     re_a = m * d_f / (a_ff * mu)
     return re_a
 
@@ -128,10 +123,10 @@ def calculate_re_air(t, p, m, cross_section_air, tube: Tube):
 def calculate_re_co2(t, p, m, tube: Tube):
     rho = PropsSI("D", "T", t, "P", p, "CO2")  # density
     mu = PropsSI("V", "T", t, "P", p, "CO2")  #
-    r = tube.d_i / 2  # internal diameter of single tube
+    r = tube.tube_in_diameter / 2  # internal diameter of single tube
     u = m / (rho * (np.pi * r ** 2))
     #print('flow speed CO2', u)
-    Re = (rho * u * tube.d_i) / mu     # from heat transfer book page 487:
+    Re = (rho * u * tube.tube_in_diameter) / mu     # from heat transfer book page 487:
     return Re
 
 
@@ -191,7 +186,7 @@ def calculate_htc_a(t, p, m, tube: Tube):
     return htc_a
 
 
-def calculate_htc_s(t, p, m,tube):
+def calculate_htc_s(t: float, p: float, m,tube: Tube):
     re_s = calculate_re_co2(t, p, m, tube)
     pr_s = calculate_pr_co2(t, p)
     rho_pc = 800  # change / look up
@@ -215,7 +210,8 @@ def calculate_htc_s(t, p, m,tube):
         n = 1.6
     Nu_s = a * (re_s ** b) * (pr_s ** c) * (rho_pc / rho_s) ** n       # Nusselt number for sCO2 side
     k_s = get_thermal_conductivity(p,t,"CO2")                          # thermal conductivity of sCO2 at givem T, p
-    htc_s = Nu_s * k_s / tube.d_i                                      # heat transfer coefficient
+    # TODO check d_i -> inner_diameter of tube
+    htc_s = Nu_s * k_s / tube.tube_in_diameter                                      # heat transfer coefficient
     
     return htc_s
 
@@ -246,9 +242,9 @@ def compute_ohtc(t_air, t_s, p_air, p_s, m_air, m_s, tube: Tube):
     
     #calculation of the fin efficiency
     k_f = 204 #[W*m*K]       #done (adjust to Ehsan)  thermal conductivity fin 
-    m_efficiency = np.sqrt(2*htc_a/(k_f*tube.t_f))
-    O_efficiency = (tube.d_f/tube.d_ot -1)*(1+0.35*np.log(tube.d_f/tube.d_ot))
-    efficiency_fin = np.tanh(m_efficiency*O_efficiency*(tube.d_ot/2))/(m_efficiency*O_efficiency*(tube.d_ot/2))
+    m_efficiency = np.sqrt(2*htc_a/(k_f*tube.fin_thickness))
+    O_efficiency = (tube.fin_out_diameter/tube.tube_out_diameter -1)*(1+0.35*np.log(tube.fin_out_diameter/tube.tube_out_diameter))
+    efficiency_fin = np.tanh(m_efficiency*O_efficiency*(tube.tube_out_diameter/2))/(m_efficiency*O_efficiency*(tube.tube_out_diameter/2))
     surface_area_air = A_t + efficiency_fin*A_f
 
     r_1 = 1 / (surface_area_air * htc_a)  # resistance of cold
@@ -285,7 +281,7 @@ def calculate_pressure_drop_air(tube):
     return delta_p
 
 
-def calculate_pressure_drop_air_per_row(t_air, p_air, tube):
+def calculate_pressure_drop_air_per_row(t_air: float, p_air: float, tube: Tube):
     ''' Compute pressure drop of air across one row of tubes in Pascal.
         Args:
             t_air (float):      mean temperature of air across row of tubes
@@ -300,11 +296,22 @@ def calculate_pressure_drop_air_per_row(t_air, p_air, tube):
             C_f    (float):     Robinson and Briggs correlation for the friction factor of airflow across finned tubes
             delta_p (float):    pressure drop across one section of tube [Pa]
     '''
+    
     rho_air = PropsSI('D','T',t_air ,'P',p_air,'AIR')
     A_ff = tube.calculate_cross_section_air()
     re_air = calculate_re_air(t_air, p_air, constants.m_air_segment, cross_section_air, tube)
     # method from heat exchanger dimensions book:
-    C_f = 9.465 * re_air ** (-0.316) * (tube.tp / tube.d_ot ) ** (-0.937)
+    size_fin = tube.fin_out_diameter - tube.fin_in_diameter
+    if size_fin > 6.3e-3:
+        C_f = 9.465 * re_air ** (-0.316) * (tube.tube_transverse_pitch / tube.tube_out_diameter ) ** (-0.937)
+    else:
+        C_f = (3.805 * re_air ** (-0.234) 
+        * (tube.fin_pitch / tube.fin_out_diameter) ** (0.251) 
+        * (tube.fin_pitch / size_fin) ** (-0.759) 
+        * (tube.fin_out_diameter / tube.tube_out_diameter) ** (-0.729) 
+        * (tube.tube_out_diameter / tube.tube_transverse_pitch) ** (0.0709)
+        * (tube.tube_longitudinal_pitch / tube.tube_transverse_pitch) ** (-0.379)
+        )
     G = constants.m_air_segment / A_ff      # G: flow mass velocity
     delta_p_row = G **2 / 2 / rho_air * C_f * 4   # rho_air should be mean across heat exchanger
     return delta_p_row
@@ -320,7 +327,7 @@ def calculate_pressure_drop_air_per_row(t_air, p_air, tube):
     '''
     f_RB = (9.465 *                # Robinson and Briggs correlation
             re_air ** (-0.316) *
-            (tube.tp / tube.d_ot) ** (-0.937) * # Khatoon paper and book use longitudinal tube pitch, Ehsan uses transversal tube pitch here
+            (tube.tube_transverse_pitch / tube.tube_inner_dimater) ** (-0.937) * # Khatoon paper and book use longitudinal tube pitch, Ehsan uses transversal tube pitch here
             (tube.dp / tube.tp ) ** (-0.515) 
           )  
 
