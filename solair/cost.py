@@ -88,7 +88,10 @@ class Fan_HC_100_6H:
 
     def get_airflow_for_pressure(self, pressure_drop: float):
         #pressure drop in Pascal
-        airflow_for_pressure =  36e3 - 26e3 * (pressure_drop / 248.84) # conversion Pa to inch H20
+        if pressure_drop <320:
+            airflow_for_pressure =  36e3 - 26e3 * (pressure_drop / 248.84) # conversion Pa to inch H20
+        else:
+            airflow_for_pressure = 1
         return airflow_for_pressure
         # validation DONE
        
@@ -106,8 +109,10 @@ class Fan_HFW_90_4_T_75:
         #pressure drop in Pascal
         if pressure_drop < 300:
             airflow_for_pressure =  46e3 - 8.5e3 * (pressure_drop / 248.84) # conversion Pa to inch H20
-        else:
+        elif pressure_drop < 700:
             airflow_for_pressure =  37.5e3 -  75 * (pressure_drop - 250) # conversion Pa to inch H2
+        else:
+            airflow_for_pressure = 1
         return airflow_for_pressure     
         # validation DONE
        
@@ -124,7 +129,11 @@ class Fan_CJHCH_80_8T_05 :
     def get_airflow_for_pressure(self, pressure_drop: float):
         #pressure drop in Pascal
         #Need to find fan curves for this pressure
-        airflow_for_pressure =  17e3 - 23.6e3 * (pressure_drop / 248.84) # conversion Pa to inch H20
+        if pressure_drop < 100:
+            airflow_for_pressure =  17e3 - 23.6e3 * (pressure_drop / 248.84) # conversion Pa to inch H20
+        else:
+            airflow_for_pressure = 1
+
         return airflow_for_pressure
         # validation DONE
 
@@ -142,7 +151,11 @@ class Fan_CJHCH_100_8T_15:
     def get_airflow_for_pressure(self, pressure_drop: float):
         #pressure drop in Pascal
         #Need to find fan curves for this pressure
-        airflow_for_pressure =  4e3 + 2116* np.sqrt(175 - pressure_drop) # conversion Pa to inch H20
+        if pressure_drop < 175 :
+            airflow_for_pressure =  4e3 + 2116* np.sqrt(175 - pressure_drop) # conversion Pa to inch H20
+        else:
+            airflow_for_pressure = 1
+
         return airflow_for_pressure
         # validation DONE
 
@@ -164,7 +177,11 @@ class Fan_HC_63_6T_H :
 
     def get_airflow_for_pressure(self, pressure_drop: float):
         #pressure drop in Pascal
-        airflow_for_pressure =  12e3 - 13e3 * (pressure_drop / 248.84) # conversion Pa to inch H20
+        if pressure_drop < 220:
+            airflow_for_pressure =  12e3 - 13e3 * (pressure_drop / 248.84) # conversion Pa to inch H20
+        else:
+            airflow_for_pressure = 1
+
         return airflow_for_pressure
         # validation DONE
        
@@ -173,6 +190,7 @@ class Fan_HC_63_6T_H :
 
 def calculate_fan_lifetime_cost(pressure_drop: float, lifetime_years: float, LCOE_fanpower_cents: float):
     #1
+    
     fan_CJHCH_100_8T_15 = Fan_CJHCH_100_8T_15()
     airflow_Fan_CJHCH_100_8T_15 = fan_CJHCH_100_8T_15.get_airflow_for_pressure(pressure_drop)
     n_fans_required_CJHCH_100_8T_15 = constants.m_air * 3000 / airflow_Fan_CJHCH_100_8T_15  # *3000 for conversion kg/s to m^3/h

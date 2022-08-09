@@ -47,7 +47,8 @@ class Csp:
         fin_out_diameter = fin_in_diameter * x[3]
         fin_pitch = x[4]
         fin_thickness = x[5] * fin_pitch
-
+        lifetime_years = 25
+        LCOE_fanpower_cents = 0.05
         tube = Tube(
             tube_in_diameter=tube_in_diameter,
             tube_out_diameter=tube_out_diameter,
@@ -65,6 +66,8 @@ class Csp:
             constants.cost_steel,
             constants.rho_alu,
             constants.cost_alu,
+            lifetime_years,
+            LCOE_fanpower_cents,
             tube,
         )
 
