@@ -86,9 +86,9 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument("-n", "--n_evals", type=int, default=100)
-    parser.add_argument("-o", "--output", type=str, default="output")
-    parser.add_argument("-m", "--turbo_m", action="store_true")
+    parser.add_argument("-n", "--n_evals", help="number of evaluations for BO" type=int, default=100)
+    parser.add_argument("-o", "--output", help="output file name for run results and logs", type=str, default="output")
+    parser.add_argument("-m", "--turbo_m", help="use turboM instead of tubro1", action="store_true")
     args = parser.parse_args()
     time_start = time.time()
 
