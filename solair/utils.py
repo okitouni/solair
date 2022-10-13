@@ -90,25 +90,24 @@ def drop_pressure(p_in: float, t: float, m: float, tube: Tube) -> float:
     # np.log(1 - 0.375) / 400
     # )   # drop pressure by 37.5% across the whole length 100 segments * 4 SHX.
 
-    return 0.00001 * p_in  # _delta_pressure * p_in
+    # return 0.00001 * p_in  # _delta_pressure * p_in
     # Things are still not working below here
     # TODO explain constants and update docstring
-    # epsilon = 0.045
-    # rho = PropsSI("D", "T", t, "P", p_in, "CO2")
-    # Re_co2 = calculate_re_co2(t, p_in, m)
-    # z = epsilon / tube.d_i
-    # f = 8 * (
-    #     (8 / Re_co2) ** (12)
-    #     + (
-    #         2.457 * np.log(1 / ((7 / Re_co2) ** 0.9) + 0.27 * z) ** 16
-    #         + (37530 / Re_co2) ** 16
-    #     )
-    #     ** (-3 / 2)
-    # ) ** (1 / 12)
-    # di = tube.d_i  # internal diameter of single tube
-    # r = di / 2
-    # u = m / (rho * (np.pi * r ** 2))
-    # L = tube.L_t
-    # d = tube.d_i
-    # delta_p = (rho * f * u ** 2 * L) / (2 * d)
-    # return delta_p
+    epsilon = 0.045
+    rho = PropsSI("D", "T", t, "P", p_in, "CO2")
+    Re_co2 = calculate_re_co2(t, p_in, m, tube)
+    z = epsilon / tube.tube_in_diameter
+    f = 8 * (
+        (8 / Re_co2) ** (12)
+        + (
+            2.457 * np.log(1 / ((7 / Re_co2) ** 0.9) + 0.27 * z) ** 16
+            + (37530 / Re_co2) ** 16
+        )
+        ** (-3 / 2)
+    ) ** (1 / 12)
+    di = tube.tube_in_diameter  # internal diameter of single tube
+    r = di / 2
+    u = m / (rho * (np.pi * r ** 2))
+    L = tube.segment_length # TODO check that this is correct
+    delta_p = (rho * f * u ** 2 * L) / (2 * di)
+    return delta_p
