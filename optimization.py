@@ -41,7 +41,7 @@ class Csp:
         self.log = log
         if self.log:
             with open("output_steps.log", "w") as f:
-                f.write(f"{'x':8s} {'tube_len [m]':>8s} {'costs':>8s}\n")
+                f.write(f"{'x array':8s} {'tube_len [m]':>8s} {'costs array':>8s}\n")
 
                  
 
