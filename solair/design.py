@@ -11,7 +11,7 @@ class Tube:
          ----------
             tube_out_diameter (float): Tube outside diameter [m]
             tube_in_diameter (float): Tube inside diameter [m]
-            tube_length (float): Length of tube [m]
+            tube_segment_length (float): Length of tube [m]
             tube_transverse_pitch (float): Transversal tube pitch (distance between the center of two tubes in the vertical direction) [m]
             fin_out_diameter (float): Fin outside diameter [m]
             fin_in_diameter (float): Fin inside diameter [m]  [0.01113,0.04089]

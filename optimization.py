@@ -1,14 +1,11 @@
 # %%
 from turbo import Turbo1, TurboM
 import numpy as np
-import matplotlib
-import matplotlib.pyplot as plt
 from solair.simulation import Simulator, Simulator_Ehasan, DynamicLength
 from solair.design import Tube
-from solair.cost import calculate_total_cost_air_cooler
+from solair.cost import calculate_total_cost_air_cooler, calculate_sub_cost_air_cooler
 from solair.constants import constants
 import torch
-from IPython import embed
 import time
 
 torch.manual_seed(0)
@@ -17,7 +14,7 @@ np.random.seed(0)
 
 
 class Csp:
-    def __init__(self):
+    def __init__(self, log=True):
         # tube_in_diameter, tube_outer_inner_diff, fin_in_diameter, fin_outer_inner_diff
         self.lb = np.array(
             [
@@ -41,6 +38,12 @@ class Csp:
                 0.8,  # fin_thickness = fraction of fin_pitch
             ]
         )
+        self.log = log
+        if self.log:
+            with open("output_steps.log", "w") as f:
+                f.write(f"{'x':8s} {'tube_len [m]':>8s} {'costs':>8s}\n")
+
+                 
 
     def __call__(self, x):
         assert len(x) == len(self.ub)
@@ -69,7 +72,8 @@ class Csp:
         sim.run()
         tube.n_segments = sim.n_segments
         # value = sim.results["t_co2"][-1][-1] # minimize the last temperature of the last tube
-        cost = calculate_total_cost_air_cooler(
+
+        costs = calculate_sub_cost_air_cooler(
             constants.rho_steel,
             constants.cost_steel,
             constants.rho_alu,
@@ -78,7 +82,11 @@ class Csp:
             LCOE_fanpower_cents,
             tube,
         )
-
+        cost = calculate_total_cost_air_cooler(*costs)
+        if self.log:
+            with open("output_steps.log", "a") as f:
+                tube_len = tube.segment_length * tube.n_segments
+                f.write(f"{x} {tube_len} {costs}\n")
         return cost
 
 
@@ -88,11 +96,13 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("-n", "--n_evals", help="number of evaluations for BO", type=int, default=100)
     parser.add_argument("-o", "--output", help="output file name for run results and logs", type=str, default="output")
-    parser.add_argument("-m", "--turbo_m", help="use turboM instead of tubro1", action="store_true")
+    parser.add_argument("-m", "--turbo-m", help="use turboM instead of tubro1", action="store_true")
+    parser.add_argument("-l", "--no-log", help="no log in every call", action="store_true")
     args = parser.parse_args()
     time_start = time.time()
 
-    f = Csp()
+    log = not args.no_log
+    f = Csp(log=log)
     Turbo = TurboM if args.turbo_m else Turbo1
     kwargs = dict(
         f=f,  # Handle to objective function
@@ -123,9 +133,9 @@ if __name__ == "__main__":
         f.write(f"{date}\n")
         f.write("Args: " + str(args) + "\n")
         time_final = time.time()
+        f.write("Total time: " + str(time_final - time_start) + "\n")
         f.write(str(turbo1.X[best_index]) + "\n")
         f.write(str(turbo1.fX[best_index]) + "\n")
-        f.write("Total time: " + str(time_final - time_start))
     np.savez(f"{args.output}.npz", X=turbo1.X, fX=turbo1.fX)
 
 # %%

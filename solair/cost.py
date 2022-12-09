@@ -3,7 +3,6 @@ from .constants import constants
 import numpy as np
 from .design import calculate_pressure_drop_air
 from .utils import drop_pressure
-from matplotlib import pyplot as plt
 
 
 def calculate_tube_cost_per_length(rho_tube, c_tm, tube: Tube):
@@ -333,10 +332,29 @@ def calculate_fan_lifetime_cost(
     # return cost_list
 
 
-def calculate_total_cost_air_cooler(
+def calculate_total_cost_air_cooler(tube_cost, fan_cost):
+    """Compute total cost of the finned tubes [$/m]
+    Args:
+        tube_cost (float): cost of the finned tube
+        fan_cost (float): cost of the fan 
+    Returns:
+        total_cost_finned_tube: total cost of finned tube
+    """
+
+    total_cost_air_cooler = (
+        tube_cost
+        * (1 + constants.f_header)
+        * (1 + constants.f_labor)
+        * constants.f_HX
+        + fan_cost
+    )
+    # this is assuming fan cost is not increasing header, labor and HX costs
+    return total_cost_air_cooler
+
+def calculate_sub_cost_air_cooler(
     rho_tube, c_tm, rho_fin, c_fm, lifetime_years, LCOE_fanpower_cents, tube: Tube
 ):
-    """Compute total cost of the finned tubes [$/m]
+    """Compute sub costs of the finned tubes [$/m]
     Args:
         rho_tube (float):   density of tube material [kg/m^3]
         c_tm (float):       cost of tube material per unit mass [$/kg]
@@ -361,16 +379,8 @@ def calculate_total_cost_air_cooler(
         pressure_drop, lifetime_years, LCOE_fanpower_cents
     )
 
-    total_cost_air_cooler = (
-        total_cost_finned_tubes
-        * (1 + constants.f_header)
-        * (1 + constants.f_labor)
-        * constants.f_HX
-        + fan_lifetime_cost
-    )
     # this is assuming fan cost is not increasing header, labor and HX costs
-    return total_cost_air_cooler
-
+    return [total_cost_finned_tubes, fan_lifetime_cost]
 
 ### PLOTTING:       need to replace line 'return minimum_cost' with return cost_list
 """
