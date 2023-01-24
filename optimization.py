@@ -25,7 +25,8 @@ class Csp:
                 1.1,  # fin_out_diameter = multiple of fin_in_diameter
                 1.1,  # tube transverse pitch = multiple of fin_out_diameter
                 1e-3,  # fin_pitch
-                0.1,  # fin_thickness = fraction of fin_pitch
+                0.1,  # fin_thickness = fraction of fin_pitch, 
+                15,
             ]
         )
         self.ub = np.array(
@@ -37,6 +38,7 @@ class Csp:
                 2,  # tube transverse pitch = multiple of fin_out_diameter
                 4e-3,  # fin_pitch
                 0.8,  # fin_thickness = fraction of fin_pitch
+                30,
             ]
         )
         self.logfile = logfile
@@ -59,7 +61,9 @@ class Csp:
         fin_thickness = x[6] * fin_pitch
         lifetime_years = 25
         LCOE_fanpower_cents = 0.05
+        t_air_out = x[7]
 
+        constants_t = constants(t_air_out)
         tube = Tube(
             tube_in_diameter=tube_in_diameter,
             tube_out_diameter=tube_out_diameter,
@@ -68,24 +72,26 @@ class Csp:
             fin_pitch=fin_pitch,
             fin_thickness=fin_thickness,
             tube_transverse_pitch=tube_transverse_pitch,
+            constants_t= constants_t,
         )
-        sim = DynamicLength(tube, verbose=0, n_rows=4, n_sub_shx=1, )
+        print(tube.constants_t.n_rows)
+        sim = DynamicLength(tube, verbose=0, n_sub_shx=1, fast=False,)
         sim.run()
         tube.n_segments = sim.n_segments
         # value = sim.results["t_co2"][-1][-1] # minimize the last temperature of the last tube
 
         costs = calculate_sub_cost_air_cooler(
-            constants.rho_steel,
-            constants.cost_steel,
-            constants.rho_alu,
-            constants.cost_alu,
+            constants_t.rho_steel,
+            constants_t.cost_steel,
+            constants_t.rho_alu,
+            constants_t.cost_alu,
             lifetime_years,
             LCOE_fanpower_cents,
             tube,
         )
-        cost = calculate_total_cost_air_cooler(*costs)
-        if self.logfile:
-            with open(self.logfile, "a") as f:
+        cost = calculate_total_cost_air_cooler(*costs, tube)
+        if self.log:
+            with open("output_steps.log", "a") as f:
                 tube_len = tube.segment_length * tube.n_segments
                 f.write(f"{x} {tube_len} {costs}\n")
         return cost
