@@ -1,5 +1,5 @@
 from .design import Tube
-from .constants import constants
+#from .constants import constants
 import numpy as np
 from .design import calculate_pressure_drop_air
 from .utils import drop_pressure
@@ -67,13 +67,13 @@ def calculate_total_cost_finned_tubes(rho_tube, c_tm, rho_fin, c_fm, tube: Tube)
 
     total_cost_finned_tubes = (
         (
-            constants.weighting_factor * (cost_tube + cost_fin)
-            + constants.fixed_cost_tube
+            tube.constants_t.weighting_factor * (cost_tube + cost_fin)
+            + tube.constants_t.fixed_cost_tube
         )
         * (tube.segment_length * tube.n_segments)
-        * constants.n_tubes_in_row
-        * constants.n_rows
-        * constants.n_sub_heat_exchangers
+        * tube.constants_t.n_tubes_in_row
+        * tube.constants_t.n_rows
+        * tube.constants_t.n_sub_heat_exchangers
     )  # TODO: implement number heat exchangers
     return total_cost_finned_tubes
 
@@ -228,7 +228,7 @@ class Fan_HC_63_6T_H:
 
 
 def calculate_fan_lifetime_cost(
-    pressure_drop: float, lifetime_years: float, LCOE_fanpower_cents: float
+    pressure_drop: float, lifetime_years: float, LCOE_fanpower_cents: float, tube: Tube
 ):
     # 1
 
@@ -237,7 +237,7 @@ def calculate_fan_lifetime_cost(
         pressure_drop
     )
     n_fans_required_CJHCH_100_8T_15 = (
-        constants.m_air * 3000 / airflow_Fan_CJHCH_100_8T_15
+        tube.constants_t.m_air * 3000 / airflow_Fan_CJHCH_100_8T_15
     )  # *3000 for conversion kg/s to m^3/h
     fan_lifetime_cost_CJHCH_100_8T_15 = n_fans_required_CJHCH_100_8T_15 * (
         fan_CJHCH_100_8T_15.cost
@@ -253,7 +253,7 @@ def calculate_fan_lifetime_cost(
     fan_HC_100_6H = Fan_HC_100_6H()
     airflow_Fan_HC_100_6H = fan_HC_100_6H.get_airflow_for_pressure(pressure_drop)
     n_fans_required_HC_100_6H = (
-        constants.m_air * 3000 / airflow_Fan_HC_100_6H
+        tube.constants_t.m_air * 3000 / airflow_Fan_HC_100_6H
     )  # *3000 for conversion kg/s to m^3/h
     fan_lifetime_cost_HC_100_6H = n_fans_required_HC_100_6H * (
         fan_HC_100_6H.cost
@@ -271,7 +271,7 @@ def calculate_fan_lifetime_cost(
         pressure_drop
     )
     n_fans_required_HFW_90_4_T_75 = (
-        constants.m_air * 3000 / airflow_Fan_HFW_90_4_T_75
+        tube.constants_t.m_air * 3000 / airflow_Fan_HFW_90_4_T_75
     )  # *3000 for conversion kg/s to m^3/h
     fan_lifetime_cost_HFW_90_4_T_75 = n_fans_required_HFW_90_4_T_75 * (
         fan_HFW_90_4_T_75.cost
@@ -289,7 +289,7 @@ def calculate_fan_lifetime_cost(
         pressure_drop
     )
     n_fans_required_CJHCH_80_8T_05 = (
-        constants.m_air * 3000 / airflow_Fan_CJHCH_80_8T_05
+        tube.constants_t.m_air * 3000 / airflow_Fan_CJHCH_80_8T_05
     )  # *3000 for conversion kg/s to m^3/h
     fan_lifetime_cost_CJHCH_80_8T_05 = n_fans_required_CJHCH_80_8T_05 * (
         fan_CJHCH_80_8T_05.cost
@@ -305,7 +305,7 @@ def calculate_fan_lifetime_cost(
     fan_HC_63_6T_H = Fan_HC_63_6T_H()
     airflow_Fan_HC_63_6T_H = fan_HC_63_6T_H.get_airflow_for_pressure(pressure_drop)
     n_fans_required_HC_63_6T_H = (
-        constants.m_air * 3000 / airflow_Fan_HC_63_6T_H
+        tube.constants_t.m_air * 3000 / airflow_Fan_HC_63_6T_H
     )  # *3000 for conversion kg/s to m^3/h
     fan_lifetime_cost_HC_63_6T_H = n_fans_required_HC_63_6T_H * (
         fan_HC_63_6T_H.cost
@@ -332,7 +332,7 @@ def calculate_fan_lifetime_cost(
     # return cost_list
 
 
-def calculate_total_cost_air_cooler(tube_cost, fan_cost):
+def calculate_total_cost_air_cooler(tube_cost, fan_cost, tube):
     """Compute total cost of the finned tubes [$/m]
     Args:
         tube_cost (float): cost of the finned tube
@@ -343,9 +343,9 @@ def calculate_total_cost_air_cooler(tube_cost, fan_cost):
 
     total_cost_air_cooler = (
         tube_cost
-        * (1 + constants.f_header)
-        * (1 + constants.f_labor)
-        * constants.f_HX
+        * (1 + tube.constants_t.f_header)
+        * (1 + tube.constants_t.f_labor)
+        * tube.constants_t.f_HX
         + fan_cost
     )
     # this is assuming fan cost is not increasing header, labor and HX costs
@@ -376,7 +376,7 @@ def calculate_sub_cost_air_cooler(
 
     pressure_drop = calculate_pressure_drop_air(tube)
     fan_lifetime_cost = calculate_fan_lifetime_cost(
-        pressure_drop, lifetime_years, LCOE_fanpower_cents
+        pressure_drop, lifetime_years, LCOE_fanpower_cents, tube,
     )
 
     # this is assuming fan cost is not increasing header, labor and HX costs

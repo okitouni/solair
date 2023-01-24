@@ -7,7 +7,7 @@ from collections import defaultdict
 import warnings
 
 
-def temp_scaling(temp_in: float, init_frac=0.05) -> float:
+def temp_scaling(temp_in: float, init_frac=0.05, constants_t = constants(20)) -> float:
     """
     Computes the temperature scaling factor for the given temperature.
     This function is used in segement_solver to determine the range of
@@ -15,12 +15,12 @@ def temp_scaling(temp_in: float, init_frac=0.05) -> float:
     init_frac is the fractional change in temp_in close to CO2 inlet temp.
     Returns max and min temperatures that can be used in the binary search.
     """
-    diff = temp_in - constants.t_co2_outlet
+    diff = temp_in - constants_t.t_co2_outlet
     diff = max(diff, 0)
     min_factor = (1.0 - init_frac) ** (1 + (diff) ** 0.6)
     max_factor = (1.0 + init_frac) ** (1 + (diff) ** 0.6)
 
-    min_temp = min(temp_in * min_factor, constants.t_co2_outlet)
+    min_temp = min(temp_in * min_factor, constants_t.t_co2_outlet)
     max_temp = temp_in * max_factor
     return min_temp, max_temp
 
@@ -32,10 +32,7 @@ class Simulator:
         verbose: int = 0,
         max_iterations: int = 100,
         n_sub_shx: int = 4,
-        n_rows: int = constants.n_rows,
-        n_segments: int = constants.n_segments,
         fast: bool = False,
-        max_co2_temp: float = constants.t_co2_inlet + 100,
     ):
         """
         Simulator for the full cooler (all Sub-Heat Exchangers SHX). Initialized with a tube object which contains
@@ -62,12 +59,12 @@ class Simulator:
         self.results = defaultdict(list)
         self.converged = False
         self.n_sub_shx = n_sub_shx
-        self.n_rows = n_rows
-        self.n_segments = n_segments
+        self.n_rows = tube.constants_t.n_rows
+        self.n_segments = tube.constants_t.n_segments
         self._verbose = verbose
         self.max_iterations = max_iterations
         self.fast = fast
-        self.max_co2_temp = max_co2_temp
+        self.max_co2_temp = tube.constants_t.t_co2_inlet + 100
 
     def _solve_tube(
         self,
@@ -119,7 +116,7 @@ class Simulator:
 
         for segment_num in range(self.n_segments):
             t_air_in = t_air_in_list[segment_num]
-            min_temp, max_temp = temp_scaling(t_co2_out)
+            min_temp, max_temp = temp_scaling(t_co2_out, constants_t = self.tube.constants_t)
             t_air_out, t_co2_out, p_co2_out = self._solve_segment(
                 p_co2_in=p_co2_out,
                 t_co2_in=t_co2_out,
@@ -153,8 +150,8 @@ class Simulator:
         t_co2_in: float,
         t_air_in: float,
         upstream: bool = False,
-        max_temp: float = constants.t_co2_inlet,
-        min_temp: float = constants.t_co2_outlet,
+        max_temp: float = 0,
+        min_temp: float = 0,
     ):
         """
         Solve temperature of output CO2 in a given segment. 
@@ -176,6 +173,7 @@ class Simulator:
                 Minimum allowed temperature. CO2 outlet tempreature when going downstream, 
                 therwise, it should be the current input tempreature. Defaults to constants.t_co2.outlet.
         """
+
         # initial guess for t_c02_out
         if upstream:
             # going upstream co2 out gets hotter
@@ -197,7 +195,7 @@ class Simulator:
         )
         # solve for t_air_out (AGAIN) # TODO remove this double calculations
         delta_p = drop_pressure(
-            p_co2_in, t_co2_in, constants.m_co2_segment, self.tube
+            p_co2_in, t_co2_in, self.tube.constants_t.m_co2_segment, self.tube
         )  # TODO calculation uses incorrect z
         delta_p = delta_p if upstream else -delta_p
         p_co2_out = p_co2_in + delta_p
@@ -208,11 +206,11 @@ class Simulator:
                 p_co2_out,
                 t_co2_in,
                 t_co2_out,
-                constants.m_co2_segment,
+                self.tube.constants_t.m_co2_segment,
                 fast=self.fast,
             )
         )
-        t_air_out = q_co2 / (constants.m_air_segment * constants.cp_air) + t_air_in
+        t_air_out = q_co2 / (self.tube.constants_t.m_air_segment * self.tube.constants_t.cp_air) + t_air_in
         return t_air_out, t_co2_out, p_co2_out
 
     def binary_search(
@@ -246,7 +244,7 @@ class Simulator:
             float: temperature of the final CO2.
         """
         delta_p = drop_pressure(
-            p_co2_in, t_co2_in, constants.m_co2_segment, self.tube
+            p_co2_in, t_co2_in, self.tube.constants_t.m_co2_segment, self.tube
         )  # TODO calculation uses incorrect z
         delta_p = delta_p if upstream else -delta_p
         p_co2_out = p_co2_in + delta_p
@@ -291,7 +289,7 @@ class Simulator:
                     f"depth: {max_depth}, q_co2: {q_co2:.2f} q_htc: {q_htc:.2f}, t_co2_out: {midpoint:.2f}, p_co2_in: {p_co2_in:.2e}, p_co2_out: {p_co2_out:.2e}"
                 )
 
-            if np.isclose(q_htc, q_co2, rtol=constants.tolerance):
+            if np.isclose(q_htc, q_co2, rtol=self.tube.constants_t.tolerance):
                 converged = True
             else:
                 if q_htc > q_co2:
@@ -354,11 +352,11 @@ class Simulator:
                 p_co2_out,
                 t_co2_in,
                 t_co2_out,
-                constants.m_co2_segment,
+                self.tube.constants_t.m_co2_segment,
                 fast=self.fast,
             )
         )
-        t_air_out = q_co2 / (constants.m_air_segment * constants.cp_air) + t_air_in
+        t_air_out = q_co2 / (self.tube.constants_t.m_air_segment * self.tube.constants_t.cp_air) + t_air_in
         if t_air_out > min(t_co2_in, t_co2_out):
             # air out can't be hotter than sCO2 used to heat it
             # air is too hot -> decrease out temp
@@ -379,14 +377,14 @@ class Simulator:
         ) / 2  # TODO: check if this is correct (LMTD instead?)
         p_co2 = (p_co2_in + p_co2_out) / 2
         t_co2 = (t_co2_in + t_co2_out) / 2
-        p_air = constants.p_air_in  # TODO: compute air pressure drop
+        p_air = self.tube.constants_t.p_air_in  # TODO: compute air pressure drop
         ohtc = compute_ohtc(
             t_air=t_air,
             t_s=t_co2,
             p_air=p_air,
             p_s=p_co2,
-            m_air=constants.m_air_segment,
-            m_s=constants.m_co2_segment,
+            m_air=self.tube.constants_t.m_air_segment,
+            m_s=self.tube.constants_t.m_co2_segment,
             tube=self.tube,
         )
         q_htc = ohtc * (delta_t_m)
@@ -406,9 +404,9 @@ class Simulator:
         n_rows = n_rows or self.n_rows
         for i in range(n_rows):
             if i == 0:
-                p_co2_init = constants.p_co2_outlet
-                t_co2_init = constants.t_co2_outlet
-                t_air_init = constants.t_air_inlet
+                p_co2_init = self.tube.constants_t.p_co2_outlet
+                t_co2_init = self.tube.constants_t.t_co2_outlet
+                t_air_init = self.tube.constants_t.t_air_inlet
                 if self._verbose > 0:
                     print("Initial conditions:")
                     print("t_co2_in:", t_co2_init, "t_air_in:", t_air_init)
@@ -514,7 +512,7 @@ class Simulator:
             converged = np.isclose(
                 required_shx_t_co2_outlet,
                 mean_shx_t_co2_outlet,
-                rtol=constants.tolerance,
+                rtol=self.tube.constants_t.tolerance,
             )
             if required_shx_t_co2_outlet > mean_shx_t_co2_outlet:
                 left = midpoint
@@ -580,9 +578,9 @@ class Simulator_Ehasan(Simulator):
     def _start_shx(self, n_rows: int = None) -> Dict[str, List]:
 
         n_rows = n_rows or self.n_rows
-        p_co2_init = constants.p_co2_inlet
-        t_co2_init = constants.t_co2_inlet
-        t_air_init = constants.t_air_inlet
+        p_co2_init = self.tube.constants_t.p_co2_inlet
+        t_co2_init = self.tube.constants_t.t_co2_inlet
+        t_air_init = self.tube.constants_t.t_air_inlet
         if self._verbose > 0:
             print("Initial conditions:")
             print("t_co2_in:", t_co2_init, "t_air_in:", t_air_init)
@@ -667,7 +665,7 @@ class DynamicLength(Simulator):
                 t_air_in = t_air_in_list[segment_num] 
             else:
                 t_air_in = t_air_init
-            min_temp, max_temp = temp_scaling(t_co2_out)
+            min_temp, max_temp = temp_scaling(t_co2_out, constants_t=self.tube.constants_t)
             t_air_out, t_co2_out, p_co2_out = self._solve_segment(
                 p_co2_in=p_co2_out,
                 t_co2_in=t_co2_out,
@@ -693,12 +691,12 @@ class DynamicLength(Simulator):
             tube_p_co2.reverse()
 
         return tube_t_air, tube_t_co2, tube_p_co2
-    def _start_shx(self, n_rows: int = None, t_co2_final: float = constants.t_co2_outlet) -> Dict[str, List]:
-
+    def _start_shx(self, n_rows: int = None) -> Dict[str, List]:
+        t_co2_final = self.tube.constants_t.t_co2_outlet
         n_rows = n_rows or self.n_rows
-        p_co2_init = constants.p_co2_inlet
-        t_co2_init = constants.t_co2_inlet
-        t_air_init = constants.t_air_inlet
+        p_co2_init = self.tube.constants_t.p_co2_inlet
+        t_co2_init = self.tube.constants_t.t_co2_inlet
+        t_air_init = self.tube.constants_t.t_air_inlet
         if self._verbose > 0:
             print("Initial conditions:")
             print("t_co2_in:", t_co2_init, "t_air_in:", t_air_init)
