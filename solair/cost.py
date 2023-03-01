@@ -100,9 +100,9 @@ def calculate_cost_air_cooler_no_fans(rho_tube, c_tm, rho_fin, c_fm, tube: Tube)
 
     cost_air_cooler_no_fans = (
         total_cost_finned_tubes
-        * (1 + constants.f_header)
-        * (1 + constants.f_labor)
-        * constants.f_HX
+        * (1 + tube.constants.f_header)
+        * (1 + tube.constants.f_labor)
+        * tube.constants.f_HX
     )
     # this is assuming fan cost is not increasing header, labor and HX costs
     return cost_air_cooler_no_fans
