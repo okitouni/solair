@@ -34,7 +34,7 @@ class Tube:
         fin_in_diameter: float = 28e-3,
         fin_pitch: float = 2.8e-3,
         fin_thickness: float = 7.5e-4,
-        constants_t = constants(20)
+        constants_t = constants
     ):
         n_segments: int = constants_t.n_segments
         self.constants_t = constants_t

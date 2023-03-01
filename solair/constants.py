@@ -86,7 +86,7 @@ def get_enthalpy(p: float, t: float, fluid: str = "CO2") -> float:
 
 @dataclass
 class constants:
-    def __init__(self, t_air_out):
+    def __init__(self, t_air_inlet=20, t_air_out=20):
         # solver tolerance
         self.tolerance: float = 0.0001  # tolerance in heat error to use in temperature search
         # design constants
@@ -104,7 +104,7 @@ class constants:
         self.t_co2_outlet: float = 40.3 + 273.15  # done
         self.p_co2_inlet: float = 7.5e6  # done
         self.p_co2_outlet: float = 7.4999e6  # done
-        self.t_air_inlet: float = 20 + 273.15  # done
+        self.t_air_inlet: float = t_air_inlet + 273.15  # done
         self.t_air_outlet: float = t_air_out + self.t_air_inlet #43.4 + 273.15  # done
         self.p_air_in: float = 99695  # done
 
