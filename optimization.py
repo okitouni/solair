@@ -14,7 +14,7 @@ np.random.seed(0)
 
 
 class Csp:
-    def __init__(self, log=True):
+    def __init__(self, log=True, t_air_inlet=20):
         # tube_in_diameter, tube_outer_inner_diff, fin_in_diameter, fin_outer_inner_diff
         self.lb = np.array(
             [
@@ -25,7 +25,7 @@ class Csp:
                 1.1,  # tube transverse pitch = multiple of fin_out_diameter
                 1e-3,  # fin_pitch
                 0.1,  # fin_thickness = fraction of fin_pitch, 
-                15,
+                15,    # t_air_out
             ]
         )
         self.ub = np.array(
@@ -37,7 +37,7 @@ class Csp:
                 2,  # tube transverse pitch = multiple of fin_out_diameter
                 4e-3,  # fin_pitch
                 0.8,  # fin_thickness = fraction of fin_pitch
-                30,
+                30,     # t_air_out
             ]
         )
         self.log = log
@@ -45,6 +45,8 @@ class Csp:
             with open("output_steps.log", "w") as f:
                 f.write(f"{'x array':8s} {'tube_len [m]':>8s} {'costs array':>8s}\n")
 
+        # t_air_in as a variable attribute
+        self.t_air_inlet = t_air_inlet
                  
 
     def __call__(self, x):
@@ -62,7 +64,8 @@ class Csp:
         LCOE_fanpower_cents = 0.05
         t_air_out = x[7]
 
-        constants_t = constants(t_air_out)
+
+        constants_t = constants(self.t_air_inlet, t_air_out)
         tube = Tube(
             tube_in_diameter=tube_in_diameter,
             tube_out_diameter=tube_out_diameter,
@@ -73,7 +76,6 @@ class Csp:
             tube_transverse_pitch=tube_transverse_pitch,
             constants_t= constants_t,
         )
-        print(tube.constants_t.n_rows)
         sim = DynamicLength(tube, verbose=0, n_sub_shx=1, fast=False,)
         sim.run()
         tube.n_segments = sim.n_segments
@@ -107,6 +109,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
     time_start = time.time()
 
+    # select device
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
     log = not args.no_log
     f = Csp(log=log)
     Turbo = TurboM if args.turbo_m else Turbo1
@@ -116,17 +121,17 @@ if __name__ == "__main__":
         ub=f.ub,  # Numpy array specifying upper bounds
         n_init=20,  # Number of initial bounds from an Latin hypercube design
         max_evals=args.n_evals,  # Maximum number of evaluations
-        batch_size=10,  # How large batch size TuRBO uses
+        batch_size=100,  # How large batch size TuRBO uses
         verbose=True,  # Print information from each batch
         use_ard=True,  # Set to true if you want to use ARD for the GP kernel
         max_cholesky_size=2000,  # When we switch from Cholesky to Lanczos
         n_training_steps=50,  # Number of steps of ADAM to learn the hypers
         min_cuda=1024,  # Run on the CPU for small datasets
-        device="cpu",  # "cpu" or "cuda"
-        dtype="float32",  # float64 or float32 # Number of trust regions
+        device=device,  # "cpu" or "cuda"
+        dtype="float32",  # float64 or float32 
     )
     if args.turbo_m:
-        kwargs["n_trust_regions"] = 10
+        kwargs["n_trust_regions"] = 10 # Number of trust regions
     turbo1 = Turbo(**kwargs)
 
     turbo1.optimize()
@@ -144,4 +149,3 @@ if __name__ == "__main__":
         f.write(str(turbo1.fX[best_index]) + "\n")
     np.savez(f"{args.output}.npz", X=turbo1.X, fX=turbo1.fX)
 
-# %%
