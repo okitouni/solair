@@ -7,6 +7,7 @@ from solair.cost import calculate_total_cost_air_cooler, calculate_sub_cost_air_
 from solair.constants import constants
 import torch
 import time
+import os
 
 torch.manual_seed(0)
 torch.cuda.manual_seed_all(0)
@@ -14,7 +15,7 @@ np.random.seed(0)
 
 
 class Csp:
-    def __init__(self, log=True):
+    def __init__(self, logfile=''):
         # tube_in_diameter, tube_outer_inner_diff, fin_in_diameter, fin_outer_inner_diff
         self.lb = np.array(
             [
@@ -38,9 +39,9 @@ class Csp:
                 0.8,  # fin_thickness = fraction of fin_pitch
             ]
         )
-        self.log = log
-        if self.log:
-            with open("output_steps.log", "w") as f:
+        self.logfile = logfile
+        if self.logfile:
+            with open(self.logfile, "w") as f:
                 f.write(f"{'x array':8s} {'tube_len [m]':>8s} {'costs array':>8s}\n")
 
                  
@@ -83,8 +84,8 @@ class Csp:
             tube,
         )
         cost = calculate_total_cost_air_cooler(*costs)
-        if self.log:
-            with open("output_steps.log", "a") as f:
+        if self.logfile:
+            with open(self.logfile, "a") as f:
                 tube_len = tube.segment_length * tube.n_segments
                 f.write(f"{x} {tube_len} {costs}\n")
         return cost
@@ -97,20 +98,22 @@ if __name__ == "__main__":
     parser.add_argument("-n", "--n_evals", help="number of evaluations for BO", type=int, default=100)
     parser.add_argument("-o", "--output", help="output file name for run results and logs", type=str, default="output")
     parser.add_argument("-m", "--turbo-m", help="use turboM instead of tubro1", action="store_true")
-    parser.add_argument("-l", "--no-log", help="no log in every call", action="store_true")
+    parser.add_argument("-s", "--silent", help="No log in every call. Will still log results.", action="store_true")
     args = parser.parse_args()
     time_start = time.time()
-
-    log = not args.no_log
-    f = Csp(log=log)
+    
+    os.makedirs("outputs", exist_ok=True)
+    filename = os.path.join("outputs", args.output)
+    log_steps_file = f"{filename}_steps.log" if not args.silent else None
+    f = Csp(logfile=log_steps_file)
     Turbo = TurboM if args.turbo_m else Turbo1
     kwargs = dict(
         f=f,  # Handle to objective function
         lb=f.lb,  # Numpy array specifying lower bounds
         ub=f.ub,  # Numpy array specifying upper bounds
-        n_init=20,  # Number of initial bounds from an Latin hypercube design
-        max_evals=args.n_evals,  # Maximum number of evaluations
-        batch_size=10,  # How large batch size TuRBO uses
+        n_init=min(args.n_evals, 20),  # Number of initial bounds from an Latin hypercube design
+        max_evals=args.n_evals+1,  # Maximum number of evaluations
+        batch_size=min(args.n_evals, 10),  # How large batch size TuRBO uses
         verbose=True,  # Print information from each batch
         use_ard=True,  # Set to true if you want to use ARD for the GP kernel
         max_cholesky_size=2000,  # When we switch from Cholesky to Lanczos
@@ -128,7 +131,8 @@ if __name__ == "__main__":
     print("Done")
     print("Best Parameters:", turbo1.X[best_index])
     print("Best Cost:", turbo1.fX[best_index])
-    with open(args.output + ".log", "w") as f:
+    # check if directories exist
+    with open(f"{filename}.log", "w") as f:
         date = time.strftime("%Y-%m-%d %H:%M:%S")
         f.write(f"{date}\n")
         f.write("Args: " + str(args) + "\n")
@@ -136,6 +140,11 @@ if __name__ == "__main__":
         f.write("Total time: " + str(time_final - time_start) + "\n")
         f.write(str(turbo1.X[best_index]) + "\n")
         f.write(str(turbo1.fX[best_index]) + "\n")
-    np.savez(f"{args.output}.npz", X=turbo1.X, fX=turbo1.fX)
+    np.savez(f"{filename}.npz", X=turbo1.X, fX=turbo1.fX)
+
+    final_msg = f"Saved to: {filename}.npz  {filename}.log"
+    if not args.silent:
+        final_msg += f" {log_steps_file}"
+    print(final_msg)
 
 # %%
