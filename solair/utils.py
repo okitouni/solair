@@ -15,7 +15,7 @@ def lmtd(t_air_in: float, t_air_out: float, t_co2_in: float, t_co2_out: float) -
         t_co2_out (float): Segment output temperature of sCO2.
 
     Raises:
-        ValueError: Need t_co2_out > t_co2_in >= t_air_out > t_air_in for the physics to make sense. 
+        ValueError: Need t_co2_out > t_co2_in >= t_air_out > t_air_in for the physics to make sense.
 
     Returns:
         float: The LMTD of the segment.
@@ -35,28 +35,30 @@ def lmtd(t_air_in: float, t_air_out: float, t_co2_in: float, t_co2_out: float) -
 
 
 def energy_co2(
-    p_in: float, p_out: float, t_in: float, t_out: float, m_co2: float, fast=True
+    p_in: float,
+    p_out: float,
+    t_in: float,
+    t_out: float,
+    m_co2: float,
 ) -> float:
     """
     Compute the energy transferred out of the sCO2.
 
     Args:
-        p_in (float): 
+        p_in (float):
             Initial pressure of the sCO2.
-        p_out (float): 
+        p_out (float):
             Final pressure of the sCO2.
-        t_in (float): 
+        t_in (float):
             Initial temperature of the sCO2.
-        t_out (float): 
+        t_out (float):
             Final temperature of the sCO2.
-        fast (bool, optional):
-            Use the fast enthalpy function. Defaults to True.
 
     Returns:
         float: The energy transferred out of the sCO2.
     """
-    h_in = get_enthalpy(p_in, t_in, fast=fast)
-    h_out = get_enthalpy(p_out, t_out, fast=fast)
+    h_in = get_enthalpy(p_in, t_in)
+    h_out = get_enthalpy(p_out, t_out)
     q_co2 = m_co2 * abs(h_out - h_in)
     return q_co2
 
@@ -107,7 +109,7 @@ def drop_pressure(p_in: float, t: float, m: float, tube: Tube) -> float:
     ) ** (1 / 12)
     di = tube.tube_in_diameter  # internal diameter of single tube
     r = di / 2
-    u = m / (rho * (np.pi * r ** 2))
-    L = tube.segment_length # TODO check that this is correct
-    delta_p = (rho * f * u ** 2 * L) / (2 * di)
+    u = m / (rho * (np.pi * r**2))
+    L = tube.segment_length  # TODO check that this is correct
+    delta_p = (rho * f * u**2 * L) / (2 * di)
     return delta_p

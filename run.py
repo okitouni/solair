@@ -19,7 +19,6 @@ def main(args):
         n_rows=4,
         n_sub_shx=1,
         max_iterations=args.max_depth,
-        fast=False,
     )
     sim.run()
     print("n_segments:", sim.n_segments)

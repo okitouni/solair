@@ -34,7 +34,6 @@ class Simulator:
         n_sub_shx: int = 4,
         n_rows: int = constants.n_rows,
         n_segments: int = constants.n_segments,
-        fast: bool = False,
         max_co2_temp: float = constants.t_co2_inlet + 100,
     ):
         """
@@ -55,7 +54,6 @@ class Simulator:
             n_sub_shx (int, optional): Number of Sub-Heat Exchangers in the heat exchanger. Defaults to 4.
             n_rows (int, optional): Number of rows of tubes per heat exchanger. Defaults to constants.n_rows.
             n_segments (int, optional): Number of segments in a tube. Defaults to constants.n_segments.
-            fast (bool, optional): Whether to use fast scipy interpolation or CoolProp. Defaults to False.
             max_co2_temp (float, optional): Maximum allowed CO2 temperature. Defaults to constants.t_co2_inlet + 100.
         """
         self.tube = tube
@@ -66,7 +64,6 @@ class Simulator:
         self.n_segments = n_segments
         self._verbose = verbose
         self.max_iterations = max_iterations
-        self.fast = fast
         self.max_co2_temp = max_co2_temp
 
     def _solve_tube(
@@ -209,7 +206,6 @@ class Simulator:
                 t_co2_in,
                 t_co2_out,
                 constants.m_co2_segment,
-                fast=self.fast,
             )
         )
         t_air_out = q_co2 / (constants.m_air_segment * constants.cp_air) + t_air_in
@@ -355,7 +351,6 @@ class Simulator:
                 t_co2_in,
                 t_co2_out,
                 constants.m_co2_segment,
-                fast=self.fast,
             )
         )
         t_air_out = q_co2 / (constants.m_air_segment * constants.cp_air) + t_air_in

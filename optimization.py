@@ -68,7 +68,7 @@ class Csp:
             fin_thickness=fin_thickness,
             tube_transverse_pitch=tube_transverse_pitch,
         )
-        sim = DynamicLength(tube, verbose=0, n_rows=4, n_sub_shx=1, fast=False,)
+        sim = DynamicLength(tube, verbose=0, n_rows=4, n_sub_shx=1, )
         sim.run()
         tube.n_segments = sim.n_segments
         # value = sim.results["t_co2"][-1][-1] # minimize the last temperature of the last tube
