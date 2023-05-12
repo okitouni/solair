@@ -28,15 +28,16 @@ class Tube:
         tube_out_diameter: float = 25e-3,
         tube_in_diameter: float = 20e-3,
         tube_segment_length: float = 0.2,
-        n_segments: int = constants.n_segments,
         tube_transverse_pitch=58e-3,
         tube_longitudinal_pitch=52e-3,
         fin_out_diameter: float = 57e-3,
         fin_in_diameter: float = 28e-3,
         fin_pitch: float = 2.8e-3,
         fin_thickness: float = 7.5e-4,
+        constants_t = constants
     ):
-
+        n_segments: int = constants_t.n_segments
+        self.constants_t = constants_t
         self.tube_out_diameter = tube_out_diameter
         self.tube_in_diameter = tube_in_diameter
         self.length = tube_segment_length * n_segments
@@ -341,24 +342,24 @@ def calculate_pressure_drop_air(tube: Tube):
     rho_air = PropsSI(
         "D",
         "T",
-        (constants.t_air_inlet + constants.t_air_outlet) / 2,
+        (tube.constants_t.t_air_inlet + tube.constants_t.t_air_outlet) / 2,
         "P",
-        constants.p_air_in,
+        tube.constants_t.p_air_in,
         "AIR",
     )
     A_ff = tube.calculate_cross_section_air()
     re_air = calculate_re_air(
-        (constants.t_air_inlet + constants.t_air_outlet) / 2,
-        constants.p_air_in,
-        constants.m_air_segment,
+        (tube.constants_t.t_air_inlet + tube.constants_t.t_air_outlet) / 2,
+        tube.constants_t.p_air_in,
+        tube.constants_t.m_air_segment,
         A_ff,
         tube,
     )
     # method from heat exchanger dimensions book:
     C_f = calculate_c_f(tube, re_air)
-    G = constants.m_air_segment / A_ff  # G: flow mass velocity
+    G = tube.constants_t.m_air_segment / A_ff  # G: flow mass velocity
     delta_p = (
-        G ** 2 / 2 / rho_air * C_f * 4 * constants.n_rows
+        G ** 2 / 2 / rho_air * C_f * 4 * tube.constants_t.n_rows
     )  ## rho_air should be mean across heat exchanger
     return delta_p
 
@@ -382,11 +383,11 @@ def calculate_pressure_drop_air_per_row(t_air: float, p_air: float, tube: Tube):
     rho_air = PropsSI("D", "T", t_air, "P", p_air, "AIR")
     A_ff = tube.calculate_cross_section_air()
     re_air = calculate_re_air(
-        t_air, p_air, constants.m_air_segment, cross_section_air, tube
+        t_air, p_air, tube.constants_t.m_air_segment, cross_section_air, tube
     )
     # method from heat exchanger dimensions book:
     C_f = calculate_c_f(tube, re_air)
-    G = constants.m_air_segment / A_ff  # G: flow mass velocity
+    G = tube.constants_t.m_air_segment / A_ff  # G: flow mass velocity
     delta_p_row = (
         G ** 2 / 2 / rho_air * C_f * 4
     )  # rho_air should be mean across heat exchanger

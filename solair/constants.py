@@ -86,56 +86,57 @@ def get_enthalpy(p: float, t: float, fluid: str = "CO2") -> float:
 
 @dataclass
 class constants:
-    # solver tolerance
-    tolerance: float = 0.0001  # tolerance in heat error to use in temperature search
-    # design constants
-    n_segments: int = 30  # done
-    n_tubes_in_row: int = 47.5  # done
-    n_rows: int = 4  # done
-    n_bundles: int = 49  # done
-    n_tubes_in_cross_section: int = n_tubes_in_row * n_bundles  # TODO this is different for different designs
-    n_tubes_tot: int = n_tubes_in_row * n_rows * n_bundles  # done
-    n_sub_heat_exchangers: int = 3 # TODO not used in the simulator currently
+    def __init__(self, t_air_inlet=20, t_air_out=20):
+        # solver tolerance
+        self.tolerance: float = 0.0001  # tolerance in heat error to use in temperature search
+        # design constants
+        self.n_segments: int = 30  # done
+        self.n_tubes_in_row: int = 47.5  # done
+        self.n_rows: int = 4  # done
+        self.n_bundles: int = 49  # done
+        self.n_tubes_in_cross_section: int = self.n_tubes_in_row * self.n_bundles  # TODO this is different for different designs
+        self.n_tubes_tot: int = self.n_tubes_in_row * self.n_rows * self.n_bundles  # done
+        self.n_sub_heat_exchangers: int = 3 # TODO not used in the simulator currently
 
 
-    # thermodynamic constants
-    t_co2_inlet: float = 71 + 273.15  # done
-    t_co2_outlet: float = 40.3 + 273.15  # done
-    p_co2_inlet: float = 7.5e6  # done
-    p_co2_outlet: float = 7.4999e6  # done
-    t_air_inlet: float = 20 + 273.15  # done
-    t_air_outlet: float = 43.4 + 273.15  # done
-    p_air_in: float = 99695  # done
+        # thermodynamic constants
+        self.t_co2_inlet: float = 71 + 273.15  # done
+        self.t_co2_outlet: float = 40.3 + 273.15  # done
+        self.p_co2_inlet: float = 7.5e6  # done
+        self.p_co2_outlet: float = 7.4999e6  # done
+        self.t_air_inlet: float = t_air_inlet + 273.15  # done
+        self.t_air_outlet: float = t_air_out + self.t_air_inlet #43.4 + 273.15  # done
+        self.p_air_in: float = 99695  # done
 
-    # find air mass flow rate
-    cp_air: float = 1005.0  # [J/kg-K]
-    m_co2: float = 406.6  # done
-    m_air: float = get_m_air(  # must equal 1107
-        p_co2_inlet,
-        p_co2_outlet,
-        t_co2_inlet,
-        t_co2_outlet,
-        t_air_inlet,
-        t_air_outlet,
-        m_co2,
-        cp_air,
-    )
-    m_air_segment: float = get_m_air_segment(
-        m_air, n_segments, n_tubes_in_cross_section=n_tubes_in_cross_section
-    )
-    m_co2_segment: float = m_co2 / (n_tubes_tot)
+        # find air mass flow rate
+        self.cp_air: float = 1005.0  # [J/kg-K]
+        self.m_co2: float = 406.6  # done
+        self.m_air: float = get_m_air(  # must equal 1107
+            self.p_co2_inlet,
+            self.p_co2_outlet,
+            self.t_co2_inlet,
+            self.t_co2_outlet,
+            self.t_air_inlet,
+            self.t_air_outlet,
+            self.m_co2,
+            self.cp_air,
+        )
+        self.m_air_segment: float = get_m_air_segment(
+            self.m_air, self.n_segments, n_tubes_in_cross_section=self.n_tubes_in_cross_section
+        )
+        self.m_co2_segment: float = self.m_co2 / (self.n_tubes_tot)
 
-     # parameters for cost calculation
-    cost_alu: float = 4.2   # [$/kg] material cost aluminium
-    cost_steel: float = 0.8 # [$/kg] material cost steel (ASTM A214)
-    rho_alu: float = 2750   # [kg/m^3] density aluminium
-    rho_steel: float = 7950 # [kg/m^3] density steel (ASTM A214)
+        # parameters for cost calculation
+        self.cost_alu: float = 4.2   # [$/kg] material cost aluminium
+        self.cost_steel: float = 0.8 # [$/kg] material cost steel (ASTM A214)
+        self.rho_alu: float = 2750   # [kg/m^3] density aluminium
+        self.rho_steel: float = 7950 # [kg/m^3] density steel (ASTM A214)
 
-    fixed_cost_tube: float = 2 # [$/m] fixed cost of the tube per unit length (Kroger vol 2)
-    weighting_factor: float = 2 # [$/m] weighting factor (kroger vol 2)
+        self.fixed_cost_tube: float = 2 # [$/m] fixed cost of the tube per unit length (Kroger vol 2)
+        self.weighting_factor: float = 2 # [$/m] weighting factor (kroger vol 2)
 
-    f_header = 0.8     # weighting factor for heat exchanger header cost
-    f_labor = 0.7      # weighting factor for heat exchanger labor cost
-    f_HX = 1.2         # ?
+        self.f_header = 0.8     # weighting factor for heat exchanger header cost
+        self.f_labor = 0.7      # weighting factor for heat exchanger labor cost
+        self.f_HX = 1.2         # ?
 
     
