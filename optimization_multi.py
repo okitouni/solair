@@ -3,11 +3,12 @@ import numpy as np
 import torch
 import time
 import pandas as pd
+import os
 
 from optimization import Csp
 
 def run_optimization(turbo_m = True , 
-                    log = True,
+                    log_steps_file = '',
                     output_file_name = "output", 
                     n_evals = 1000, 
                     t_air_inlet = 20):
@@ -33,7 +34,7 @@ def run_optimization(turbo_m = True ,
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # define objective function
-    f = Csp(log=log, t_air_inlet=t_air_inlet)
+    f = Csp(logfile=log_steps_file, t_air_inlet=t_air_inlet)
     Turbo = TurboM if turbo_m else Turbo1
     kwargs = dict(
         f=f,  # Handle to objective function
@@ -74,10 +75,9 @@ def run_optimization(turbo_m = True ,
 if __name__ == "__main__":
 
     turbo_m = False
-    log = True
-    n_evals = 100
+    n_evals = 30
 
-    out_folder = "output/"
+    out_folder = "outputs/"
 
     # import data from csv file "tops_df.csv"
     tops_df = pd.read_csv("tops_df.csv")
@@ -85,7 +85,9 @@ if __name__ == "__main__":
 
     for t_in in t_in_vec:
         output_file_name = f"{out_folder}output_{t_in}"
-        turbo_out = run_optimization(turbo_m, log, output_file_name, n_evals, t_in)
+        log_steps_file = f"{out_folder}log_steps_{t_in}.log"
+
+        turbo_out = run_optimization(turbo_m, log_steps_file, output_file_name, n_evals, t_in)
 
         # add best parameters to tops_df
         best_index = turbo_out.fX.argmin()

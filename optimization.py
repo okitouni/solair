@@ -42,9 +42,8 @@ class Csp:
             ]
         )
         self.logfile = logfile
-        if self.logfile:
-            with open(self.logfile, "w") as f:
-                f.write(f"{'x array':8s} {'tube_len [m]':>8s} {'costs array':>8s}\n")
+        with open(self.logfile, "w") as f:
+            f.write(f"{'x array':8s} {'tube_len [m]':>8s} {'costs array':>8s}\n")
 
         # t_air_in as a variable attribute
         self.t_air_inlet = t_air_inlet
@@ -77,7 +76,7 @@ class Csp:
             tube_transverse_pitch=tube_transverse_pitch,
             constants_t= constants_t,
         )
-        sim = DynamicLength(tube, verbose=0, n_sub_shx=1, fast=False,)
+        sim = DynamicLength(tube, verbose=0, n_sub_shx=1)
         sim.run()
         tube.n_segments = sim.n_segments
         # value = sim.results["t_co2"][-1][-1] # minimize the last temperature of the last tube
@@ -92,10 +91,9 @@ class Csp:
             tube,
         )
         cost = calculate_total_cost_air_cooler(*costs, tube)
-        if self.log:
-            with open("output_steps.log", "a") as f:
-                tube_len = tube.segment_length * tube.n_segments
-                f.write(f"{x} {tube_len} {costs}\n")
+        with open(self.logfile, "a") as f:
+            tube_len = tube.segment_length * tube.n_segments
+            f.write(f"{x} {tube_len} {costs}\n")
         return cost
 
 
@@ -109,10 +107,16 @@ if __name__ == "__main__":
     parser.add_argument("-s", "--silent", help="No log in every call. Will still log results.", action="store_true")
     args = parser.parse_args()
     time_start = time.time()
+
+    # select cuda device if available
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     
     os.makedirs("outputs", exist_ok=True)
+
     filename = os.path.join("outputs", args.output)
+
     log_steps_file = f"{filename}_steps.log" if not args.silent else None
+
     f = Csp(logfile=log_steps_file, t_air_inlet=20)
     Turbo = TurboM if args.turbo_m else Turbo1
     kwargs = dict(
@@ -131,7 +135,7 @@ if __name__ == "__main__":
         dtype="float32",  # float64 or float32 
     )
     if args.turbo_m:
-        kwargs["n_trust_regions"] = 10 # Number of trust regions
+        kwargs["n_trust_regions"] = 5 # Number of trust regions
     turbo1 = Turbo(**kwargs)
 
     turbo1.optimize()
