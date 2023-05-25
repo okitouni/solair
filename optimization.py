@@ -15,7 +15,7 @@ np.random.seed(0)
 
 
 class Csp:
-    def __init__(self, logfile=''):
+    def __init__(self, logfile='', t_air_inlet=20):
         # tube_in_diameter, tube_outer_inner_diff, fin_in_diameter, fin_outer_inner_diff
         self.lb = np.array(
             [
@@ -25,7 +25,8 @@ class Csp:
                 1.1,  # fin_out_diameter = multiple of fin_in_diameter
                 1.1,  # tube transverse pitch = multiple of fin_out_diameter
                 1e-3,  # fin_pitch
-                0.1,  # fin_thickness = fraction of fin_pitch
+                0.1,  # fin_thickness = fraction of fin_pitch, 
+                15,    # t_air_out
             ]
         )
         self.ub = np.array(
@@ -37,13 +38,15 @@ class Csp:
                 2,  # tube transverse pitch = multiple of fin_out_diameter
                 4e-3,  # fin_pitch
                 0.8,  # fin_thickness = fraction of fin_pitch
+                30,     # t_air_out
             ]
         )
         self.logfile = logfile
-        if self.logfile:
-            with open(self.logfile, "w") as f:
-                f.write(f"{'x array':8s} {'tube_len [m]':>8s} {'costs array':>8s}\n")
+        with open(self.logfile, "w") as f:
+            f.write(f"{'x array':8s} {'tube_len [m]':>8s} {'costs array':>8s}\n")
 
+        # t_air_in as a variable attribute
+        self.t_air_inlet = t_air_inlet
                  
 
     def __call__(self, x):
@@ -59,7 +62,10 @@ class Csp:
         fin_thickness = x[6] * fin_pitch
         lifetime_years = 25
         LCOE_fanpower_cents = 0.05
+        t_air_out = x[7]
 
+
+        constants_t = constants(self.t_air_inlet, t_air_out)
         tube = Tube(
             tube_in_diameter=tube_in_diameter,
             tube_out_diameter=tube_out_diameter,
@@ -68,26 +74,26 @@ class Csp:
             fin_pitch=fin_pitch,
             fin_thickness=fin_thickness,
             tube_transverse_pitch=tube_transverse_pitch,
+            constants_t= constants_t,
         )
-        sim = DynamicLength(tube, verbose=0, n_rows=4, n_sub_shx=1, )
+        sim = DynamicLength(tube, verbose=0, n_sub_shx=1)
         sim.run()
         tube.n_segments = sim.n_segments
         # value = sim.results["t_co2"][-1][-1] # minimize the last temperature of the last tube
 
         costs = calculate_sub_cost_air_cooler(
-            constants.rho_steel,
-            constants.cost_steel,
-            constants.rho_alu,
-            constants.cost_alu,
+            constants_t.rho_steel,
+            constants_t.cost_steel,
+            constants_t.rho_alu,
+            constants_t.cost_alu,
             lifetime_years,
             LCOE_fanpower_cents,
             tube,
         )
-        cost = calculate_total_cost_air_cooler(*costs)
-        if self.logfile:
-            with open(self.logfile, "a") as f:
-                tube_len = tube.segment_length * tube.n_segments
-                f.write(f"{x} {tube_len} {costs}\n")
+        cost = calculate_total_cost_air_cooler(*costs, tube)
+        with open(self.logfile, "a") as f:
+            tube_len = tube.segment_length * tube.n_segments
+            f.write(f"{x} {tube_len} {costs}\n")
         return cost
 
 
@@ -101,11 +107,17 @@ if __name__ == "__main__":
     parser.add_argument("-s", "--silent", help="No log in every call. Will still log results.", action="store_true")
     args = parser.parse_args()
     time_start = time.time()
+
+    # select cuda device if available
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     
     os.makedirs("outputs", exist_ok=True)
+
     filename = os.path.join("outputs", args.output)
+
     log_steps_file = f"{filename}_steps.log" if not args.silent else None
-    f = Csp(logfile=log_steps_file)
+
+    f = Csp(logfile=log_steps_file, t_air_inlet=20)
     Turbo = TurboM if args.turbo_m else Turbo1
     kwargs = dict(
         f=f,  # Handle to objective function
@@ -119,11 +131,11 @@ if __name__ == "__main__":
         max_cholesky_size=2000,  # When we switch from Cholesky to Lanczos
         n_training_steps=50,  # Number of steps of ADAM to learn the hypers
         min_cuda=1024,  # Run on the CPU for small datasets
-        device="cpu",  # "cpu" or "cuda"
-        dtype="float32",  # float64 or float32 # Number of trust regions
+        device=device,  # "cpu" or "cuda"
+        dtype="float32",  # float64 or float32 
     )
     if args.turbo_m:
-        kwargs["n_trust_regions"] = 10
+        kwargs["n_trust_regions"] = 5 # Number of trust regions
     turbo1 = Turbo(**kwargs)
 
     turbo1.optimize()
@@ -147,4 +159,3 @@ if __name__ == "__main__":
         final_msg += f" {log_steps_file}"
     print(final_msg)
 
-# %%
