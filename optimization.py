@@ -23,7 +23,7 @@ class CSP:
                 1.1,  # tube_out_diameter = multiple of tube_in_diameter
                 1.1,  # fin_in_diameter = multiple of tube_out_diameter
                 1.1,  # fin_out_diameter = multiple of fin_in_diameter
-                1.1,  # tube transverse pitch = multiple of fin_out_diameter
+                1.01,  # tube transverse pitch = multiple of fin_out_diameter
                 1e-3,  # fin_pitch
                 0.1,  # fin_thickness = fraction of fin_pitch,
                 15,  # t_air_out
@@ -34,24 +34,30 @@ class CSP:
                 20e-3 + 20e-3,  # tube_in_diameter
                 2,  # tube_out_diameter = multiple of tube_in_diameter
                 2,  # fin_in_diameter = multiple of tube_out_diameter
-                2,  # fin_out_diameter = multiple of fin_in_diameter
-                2,  # tube transverse pitch = multiple of fin_out_diameter
+                2.1,  # fin_out_diameter = multiple of fin_in_diameter
+                2.1,  # tube transverse pitch = multiple of fin_out_diameter
                 4e-3,  # fin_pitch
                 0.8,  # fin_thickness = fraction of fin_pitch
                 30,  # t_air_out
             ]
         )
         self.logfile = logfile
-        with open(self.logfile, "w") as f:
-            f.write(f"{'x array':8s} {'tube_len [m]':>8s} {'costs array':>8s}\n")
+        if logfile:
+            with open(self.logfile, "w") as f:
+                f.write(f"{'x array':8s} {'tube_len [m]':>8s} {'costs array':>8s}\n")
 
         # t_air_in as a variable attribute
         self.t_air_inlet = t_air_inlet
 
     def _run_simulation(self, x):
-        assert len(x) == len(self.ub)
-        assert x.ndim == 1
-        assert np.all(x <= self.ub) and np.all(x >= self.lb)
+        # error handling
+        if len(x) != len(self.lb):
+            raise ValueError(f"x has length {len(x)} but should have length {len(self.lb)}")
+        assert x.ndim == 1, "x should be a 1D array"
+        for i in range(len(x)):
+            if x[i] < self.lb[i] or x[i] > self.ub[i]:
+                raise ValueError(f"x[{i}] = {x[i]} is out of bounds, [{self.lb[i]}, {self.ub[i]}]")
+        
         tube_in_diameter = x[0]
         tube_out_diameter = tube_in_diameter * x[1]
         fin_in_diameter = tube_out_diameter * x[2]
@@ -91,11 +97,12 @@ class CSP:
 
     def __call__(self, x):
         cost, tube_cost, fan_cost, tube = self._run_simulation(x)
-        with open(self.logfile, "a") as f:
-            tube_len = tube.segment_length * tube.n_segments
-            f.write(
-                f"{x} {tube_len}, costs: tube {tube_cost}, fan {fan_cost}, total {cost} \n"
-            )
+        if self.logfile:
+            with open(self.logfile, "a") as f:
+                tube_len = tube.segment_length * tube.n_segments
+                f.write(
+                    f"{x} {tube_len}, costs: tube {tube_cost}, fan {fan_cost}, total {cost} \n"
+                )
         return cost
 
 
