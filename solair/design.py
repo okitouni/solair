@@ -1,7 +1,7 @@
 from .constants import constants, get_m_air
 from CoolProp.CoolProp import PropsSI
 import numpy as np
-from typing import Iterable
+from typing import Iterable, Union
 
 
 class Tube:
@@ -34,7 +34,7 @@ class Tube:
         fin_in_diameter: float = 28e-3,
         fin_pitch: float = 2.8e-3,
         fin_thickness: float = 7.5e-4,
-        constants_t = constants
+        constants_t = constants()
     ):
         n_segments: int = constants_t.n_segments
         self.constants_t = constants_t
@@ -147,7 +147,7 @@ def calculate_re_co2(t, p, m, tube: Tube):
 
 
 def get_enthalpy(
-    p: Iterable[float], t: Iterable[float], fluid: str = "CO2"
+    p: Union[Iterable[float], float], t: Union[Iterable[float],float], fluid: str = "CO2"
 ) -> Iterable[float]:
     """Compute the enthalpy of a fluid at a given pressure and temperature.
 
@@ -164,7 +164,7 @@ def get_enthalpy(
 
 
 def get_thermal_conductivity(
-    p: Iterable[float], t: Iterable[float], fluid: str = "CO2"
+    p: Union[Iterable[float], float], t: Union[Iterable[float], float], fluid: str = "CO2"
 ) -> Iterable[float]:
     """Compute the thermal conductivity of a fluid at a given pressure and temperature.
 
@@ -424,6 +424,7 @@ if __name__ == "__main__":
     tube = Tube()
     m_s = 406.6 / 190 / 49  # #443 / (120*100)
     # m_a = 1107 /constants.n_segments
+    constants = constants()
     m_a = get_m_air(
         constants.p_co2_inlet,
         constants.p_co2_outlet,
