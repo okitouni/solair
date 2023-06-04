@@ -1,5 +1,4 @@
 from .design import Tube
-#from .constants import constants
 import numpy as np
 from .design import calculate_pressure_drop_air
 from .utils import drop_pressure
