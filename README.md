@@ -1,6 +1,6 @@
 <!-- center the title below make text large and colored -->
 <p align="center">
-    <font size="6">Solair: Optimization of Air-Cooling for sCO2</font>
+    <font size="16">Solair: Optimization of Air-Cooling for sCO2</font>
 </p>
 
 # Overview
