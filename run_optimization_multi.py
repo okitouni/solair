@@ -4,7 +4,7 @@ import torch
 import time
 import pandas as pd
 
-from optimization import Csp
+from optimization import CSP
 
 def run_optimization(turbo_m = True , 
                     log = True,
@@ -33,7 +33,7 @@ def run_optimization(turbo_m = True ,
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # define objective function
-    f = Csp(log=log, t_air_inlet=t_air_inlet)
+    f = CSP(log=log, t_air_inlet=t_air_inlet)
     Turbo = TurboM if turbo_m else Turbo1
     kwargs = dict(
         f=f,  # Handle to objective function
