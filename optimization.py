@@ -1,9 +1,12 @@
 # %%
 from turbo import Turbo1, TurboM
 import numpy as np
-from solair.simulation import Simulator, Simulator_Ehasan, DynamicLength
+from solair.simulation import DynamicLength
 from solair.design import Tube
-from solair.cost import calculate_total_cost_air_cooler, calculate_sub_cost_air_cooler
+from solair.cost import (
+    calculate_total_cost_air_cooler,
+    calculate_sub_cost_air_cooler,
+)
 from solair import constants
 import torch
 import time
@@ -15,8 +18,7 @@ np.random.seed(0)
 
 
 class CSP:
-    def __init__(self, logfile='', t_air_inlet=20):
-        # tube_in_diameter, tube_outer_inner_diff, fin_in_diameter, fin_outer_inner_diff
+    def __init__(self, logfile="", t_air_inlet=20):
         self.lb = np.array(
             [
                 20e-3 - 10e-3,  # tube_in_diameter
@@ -26,7 +28,7 @@ class CSP:
                 1.01,  # tube transverse pitch = multiple of fin_out_diameter
                 1e-3,  # fin_pitch
                 0.1,  # fin_thickness = fraction of fin_pitch,
-                15,  # t_air_out
+                t_air_inlet,  # t_air_out
             ]
         )
         self.ub = np.array(
@@ -44,7 +46,9 @@ class CSP:
         self.logfile = logfile
         if logfile:
             with open(self.logfile, "w") as f:
-                f.write(f"{'x array':8s} {'tube_len [m]':>8s} {'costs array':>8s}\n")
+                f.write(
+                    f"{'x array':8s} {'tube_len [m]':>8s} {'costs array':>8s}\n"
+                )
 
         # t_air_in as a variable attribute
         self.t_air_inlet = t_air_inlet
@@ -52,12 +56,16 @@ class CSP:
     def _run_simulation(self, x):
         # error handling
         if len(x) != len(self.lb):
-            raise ValueError(f"x has length {len(x)} but should have length {len(self.lb)}")
+            raise ValueError(
+                f"x has length {len(x)} but should have length {len(self.lb)}"
+            )
         assert x.ndim == 1, "x should be a 1D array"
         for i in range(len(x)):
             if x[i] < self.lb[i] or x[i] > self.ub[i]:
-                raise ValueError(f"x[{i}] = {x[i]} is out of bounds, [{self.lb[i]}, {self.ub[i]}]")
-        
+                raise ValueError(
+                    f"x[{i}] = {x[i]} is out of bounds, [{self.lb[i]}, {self.ub[i]}]"
+                )
+
         tube_in_diameter = x[0]
         tube_out_diameter = tube_in_diameter * x[1]
         fin_in_diameter = tube_out_diameter * x[2]
@@ -81,7 +89,6 @@ class CSP:
         sim = DynamicLength(tube, verbose=0, n_sub_shx=1)
         sim.run()
         tube.n_segments = sim.n_segments
-        # value = sim.results["t_co2"][-1][-1] # minimize the last temperature of the last tube
 
         tube_cost, fan_cost = calculate_sub_cost_air_cooler(
             constants_t.rho_steel,
@@ -111,7 +118,11 @@ if __name__ == "__main__":
 
     parser = ArgumentParser()
     parser.add_argument(
-        "-n", "--n_evals", help="number of evaluations for BO", type=int, default=100
+        "-n",
+        "--n_evals",
+        help="number of evaluations for BO",
+        type=int,
+        default=100,
     )
     parser.add_argument(
         "-o",
@@ -121,7 +132,10 @@ if __name__ == "__main__":
         default="output",
     )
     parser.add_argument(
-        "-m", "--turbo-m", help="use turboM instead of tubro1", action="store_true"
+        "-m",
+        "--turbo-m",
+        help="use turboM instead of tubro1",
+        action="store_true",
     )
     parser.add_argument(
         "-s",
@@ -139,7 +153,7 @@ if __name__ == "__main__":
 
     filename = os.path.join("outputs", args.output)
 
-    log_steps_file = f"{filename}_steps.log" if not args.silent else ''
+    log_steps_file = f"{filename}_steps.log" if not args.silent else ""
 
     f = CSP(logfile=log_steps_file)
     Turbo = TurboM if args.turbo_m else Turbo1
